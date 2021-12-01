@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 2021/11/30 21:07:26
+// Create Date: 2021/12/01 20:45:38
 // Design Name: 
-// Module Name: instruction_fetch
+// Module Name: id
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,21 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`include "include.v"
 
-module instruction_fetch(
-    input [`MEMORY_DEPTH:0]pc,
-    output [`DATA_WIDTH:0]instruction_out
+module id(
+
     );
-       
-           
-    rom rom_inst(
-        .we(1'b1),
-        .rst_n(1'b1),
-        .addr(pc),
-        .datai(`DATA_WIDTH'hffffffff),
-        .datao(instruction_out)
-    );
-    
-    
 endmodule
