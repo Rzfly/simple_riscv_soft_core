@@ -29,30 +29,79 @@ module riscv_core(
     wire [`BUS_WIDTH - 1:0]pc_out;
     wire [`DATA_WIDTH - 1:0]instruction_if;
     
+    wire [`BUS_WIDTH - 1:0]pc_id;
     wire [`DATA_WIDTH - 1:0]instruction_id;
     wire [`DATA_WIDTH - 1:0]id_rs2_data;
     wire [`DATA_WIDTH - 1:0]id_rs1_data;
     wire [`DATA_WIDTH - 1:0]id_rd;
+    
+    
+    wire [`BUS_WIDTH - 1:0]pc_ex;
     
     wire [`RD_WIDTH - 1:0]wb_reg;
     wire [`RD_WIDTH - 1:0]wb_data;
     
     
     //control
+    wire [`ALU_CONTROL_CODE - 1: 0]ALU_control_ex;
+    wire ALU_src_ex;
+    //for auipc
+    wire imm_src_ex;
+    wire read_mem_ex;
+    wire write_mem_ex;
+    wire mem2reg_ex;
+    wire write_reg_ex;
+    wire [`ALU_CONTROL_CODE + 4 :0]control_flow_ex;
+    assign control_flow_ex = {ALU_control_ex,ALU_src_ex,imm_src_ex,read_mem_ex,write_mem_ex,mem2reg_ex,write_reg_ex};
+    //wire branch_ex;
+    
+    //control
+    wire read_mem_mem;
+    wire writre_mem_mem;
+    wire mem2reg_mem;
+    wire write_reg_mem;
+    wire[3:0]control_flow_mem;
+    assign control_flow_mem = {read_mem_mem, writre_mem_mem, mem2reg_mem, write_reg_mem};
+    
+    //control
+    wire mem2reg_wb;
+    wire write_reg_wb;
+    wire [1:0]control_flow_wb;
+    assign control_flow_wb = {mem2reg_wb, write_reg_wb};
+    
+    //control
     wire write_reg;
     wire mem2reg;
     wire read_mem;
-    wire writre_mem;
+    wire write_mem;
     wire ALU_src;
-    wire branch;
+    wire [`ALU_CONTROL_CODE - 1: 0]ALU_control;
+    wire imm_src;
     
+    wire [`OP_WIDTH - 1:0]ins_opcode;
+    wire [`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC7_WIDTH]ins_func7;
+    wire [`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC6_WIDTH]ins_func6;
+    wire [`DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH : `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH]ins_func3;
+    
+    wire [`BUS_WIDTH - 1:0]pc_branch_addr;
+    
+    wire [`IMM_WIDTH - 1:0]  imm_short;
+    wire [`DATA_WIDTH - 1:0] imm_long;
+    wire [`DATA_WIDTH - 1:0] imm_extend;
+    wire [`DATA_WIDTH - 1:0] imm_for_pc_addition;
+    
+    wire [`DATA_WIDTH - 1:0] rd2_data_o;
+    wire [`DATA_WIDTH - 1:0] rd1_data_o;
+    
+    wire [`DATA_WIDTH - 1:0] alu_input_num2;
+    wire [`DATA_WIDTH - 1:0] alu_input_num1;
     
     
     // regs 
     pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .branch_addr(),
+        .branch_addr(pc_branch_addr),
         .branch(),
         .hold(),
         .pc_reset_value(2'b0000000000),
@@ -71,43 +120,102 @@ module riscv_core(
         .rst_n(rst_n),
         .instruction_i(instruction_if),
         .instruction_o(instruction_id),
-        //not implemented yet
+        .pc_in(pc_out),
+        .pc_out(pc_id),
+         //not implemented yet
         .hold(1'b0),
         .flush()
     );
     
-    
     // pure logic 
     // for id
+    control control_inst(
+        .instruction(instruction_id),
+        .write_reg(write_reg_ex),
+        .ALU_src(ALU_src_ex),
+        .ALU_control(ALU_control_ex),
+        .mem2reg(mem2reg_ex),
+        .read_mem(read_mem_ex),
+        .write_mem(write_mem_ex),
+        .ins_opcode(ins_opcode),
+        .ins_func7(ins_func7),
+        .ins_func6(ins_func6),
+        .ins_func3(ins_func3),
+        .imm_short(imm_short),
+	    .imm_long(imm_long)
+    );
+
+    //clock for WB.
+    //pure logic for id
     regfile regfile_inst(
         .clk(clk),
-        .rst_n(rst_n),
+        .we(write_reg),
         .rs2(instruction_id[24:20]),
         .rs1(instruction_id[19:15]),
-        .rs2_data(id_rs2_data),
-        .rs1_data(id_rs1_data),
-        .wb_data(wb_data),
-        .wb_reg(wb_reg),
-        .write_reg(write_reg)
-    )
-    
-    
-    
-    //pure logic
+        .rd2_data(id_rs2_data),
+        .rd1_data(id_rs1_data),
+        .wd(wb_data),
+        .wa(wb_reg)
+    );
+       
+    sign_extend sign_extend_inst(
+        .immediate_num(imm_short),
+        .num(imm_extend)
+    );
+    //regs
     id_ex id_ex_inst(
-        .rs2_data(id_rs2_data),
-        .rs1_data(id_rs1_data),
-        .rs1(instruction_id[24:20]),
-        .rs2(instruction_id[19:15]),
-        .ex_control(ALU_src),
-        .mem_control({}),
-        .wb_control({}),
-        
-        .ALU_src(ALU_src)
-    )
+        .clk(clk),
+        .rst_n(rst_n),
+        .rd2_data_i(id_rs2_data),
+        .rd1_data_i(id_rs1_data),
+        .imm_short_in(imm_short),
+        .rd2_data_o(rd2_data_o),
+        .rd1_data_o(rd1_data_o),
+        .imm_alu_src(imm_extend),
+        .control_flow_i(control_flow_ex),
+        .ALU_control(ALU_control),
+        .ALU_src_ex(ALU_src),
+        .imm_src_ex(imm_src),
+        .control_flow_o(control_flow_mem),
+        .instruction(instruction_id)
+    );
     
-    
+//    mux3 mux3_inst1(
+//        .
+//    )
+//     mux2 mux2_rd1_switch(
+//     .num0(rd1_data_o),
+//     .num1(pc_ex),
+//     .switch(imm_src),
+//     .muxout(alu_input_num1),
+//     );
+     
+     mux2num  mux2_rd2_switch(
+     .num0(rd2_data_o),
+     .num1(imm_extend),
+     .switch(ALU_src),
+     .muxout(alu_input_num2),
+     );
+     
+     //for auipc / jal
+     mux2num imm_switch_for_pc_add(
+     .num0({imm_long[`DATA_WIDTH - 1:1],1'b0}),
+     .num1(imm_long),
+     .switch(imm_src),
+     .muxout(imm_for_pc_addition),
+     );
+
+    branch_addr_gen(
+        .pc(pc_ex),
+        .imm(imm_for_pc_addition),
+        .branch_addr(pc_branch_addr)
+    );
+          
+    //pure logic
+//    ex ex_inst(
         
+    
+//    );
     
     
 endmodule

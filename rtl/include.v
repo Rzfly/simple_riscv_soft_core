@@ -36,3 +36,21 @@
 `define JAL_IMM_WIDTH 20
 `define IMM_WIDTH 12
 
+//control input of alu 
+`define ALU_OP_WIDTH 4
+`define ALU_CONTROL_CODE 2
+
+//type define p83
+`define R_TYPE       2'b0110011
+`define I_TYPE_LOAD  2'b0000011 
+`define I_TYPE_ALUI  2'b0010011 
+`define I_TYPE_JALR  2'b1100011
+
+`define S_TYPE       2'b0100011
+`define SB_TYPE      2'b1100111
+`define U_TYPE       2'b0110111
+`define UJ_TYPE      2'b1101111
+`define AUIPC_TYPE   2'b0010111
+
+//other define
+`define FUNC6_WIDTH 6
