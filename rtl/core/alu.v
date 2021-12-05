@@ -5,7 +5,7 @@ module alu(
     input [`DATA_WIDTH - 1:0]alu_src_1,
     input [`DATA_WIDTH - 1:0]alu_src_2,
     input [`ALU_OP_WIDTH - 1:0]operation,
-    output reg [`DATA_WIDTH - 1:0]alu_output
+    output [`DATA_WIDTH - 1:0]alu_output
 );
 
 
@@ -26,27 +26,41 @@ module alu(
                    // The compare lt or gt instruction
              | (
                 op_slt | op_sltu 
-               ))
-    wire op_shift = op_sra | op_sll | op_srl;   
+               ));
+    wire op_shift;
+    assign op_shift = op_sra | op_sll | op_srl;   
           
     wire [`DATA_WIDTH - 1:0]adder_in1;
     wire [`DATA_WIDTH - 1:0]adder_in2;
 
 
-    wire [`DATA_WIDTH - 1:0]alu_addsub_res = adder_in1 + adder_in2;
+    wire [`DATA_WIDTH - 1:0]alu_addsub_res;
     wire [`DATA_WIDTH - 1:0]alu_xor_res = alu_src_1 ^ alu_src_2;
     wire [`DATA_WIDTH - 1:0]shifter_res;
-    wire [`DATA_WIDTH - 1:0]alu_sll_res = shifter_res;
-    wire [`DATA_WIDTH - 1:0]alu_srl_res = shifter_res;
-    wire [`DATA_WIDTH - 1:0]alu_sra_res = shifter_res;
+    wire [`DATA_WIDTH - 1:0]alu_sll_res;
+    wire [`DATA_WIDTH - 1:0]alu_srl_res;
+    wire [`DATA_WIDTH - 1:0]alu_sra_res;
     wire [`DATA_WIDTH - 1:0]alu_or_res = alu_src_1 |alu_src_2;
     wire [`DATA_WIDTH - 1:0]alu_and_res = alu_src_1 & alu_src_2;
-    wire [`DATA_WIDTH - 1:0]alu_slt_res = alu_src_1 ^ alu_src_2;
-    wire [`DATA_WIDTH - 1:0]alu_sltu_res = alu_src_1
+    wire [`DATA_WIDTH - 1:0]alu_slt_res;
+    wire [`DATA_WIDTH - 1:0]alu_sltu_res;
+    
+    wire  [`DATA_WIDTH-1:0] adder_res;
+    wire  [`DATA_WIDTH-1:0] sra_res;
+    wire  [`DATA_WIDTH-1:0] srl_res;
+    wire  [`DATA_WIDTH-1:0] sll_res;
     
     wire [`DATA_WIDTH - 1:0]shifter_res;
     wire [`DATA_WIDTH - 1:0]shifter_in1;
     wire [`DATA_WIDTH - 1:0]shifter_op1 = alu_src_1;
+    wire [`DATA_WIDTH - 1:0]shifter_op2 = alu_src_2;
+    
+    wire [`ALU_ADDER_WIDTH-1:0] misc_adder_op1;
+    wire [`ALU_ADDER_WIDTH-1:0] misc_adder_op2;
+    wire [`DATA_WIDTH - 1:0]misc_op1;
+    wire [`DATA_WIDTH - 1:0]misc_op2;
+   
+   
     wire [5 - 1:0]shifter_in2;
          
     assign shifter_in1 = {`DATA_WIDTH{op_shift}} & (
@@ -62,7 +76,7 @@ module alu(
             shifter_op1[28],shifter_op1[29],shifter_op1[30],shifter_op1[31]
                  } : (shifter_op1) );    
                  
-    assign shifter_in2 = 
+    assign shifter_in2 = {5{op_shift}} & shifter_op2[4:0];
     assign alu_output = 
     ( {`DATA_WIDTH{op_addsub}} & alu_addsub_res )| 
     ( {`DATA_WIDTH{op_xor}} & alu_xor_res )| 
@@ -74,20 +88,56 @@ module alu(
     ( {`DATA_WIDTH{op_slt}} & alu_slt_res )| 
     ( {`DATA_WIDTH{op_sltu}} & alu_sltu_res );
     
-    assign adder_in1 = {`DATA_WIDTH{op_addsub}} & (alu_src_1);
-    assign adder_in2 = {`DATA_WIDTH{op_addsub}} & (adder_sub ? (~alu_src_2) : alu_src_2);
+    assign adder_in1 = {`ALU_ADDER_WIDTH{op_addsub}} & (misc_adder_op1);
+    assign adder_in2 = {`ALU_ADDER_WIDTH{op_addsub}} & (adder_sub ? (~misc_adder_op1) : misc_adder_op1);
     
+    wire [`DATA_WIDTH - 1:0]alu_addsub_res = adder_res;
+   
+   
+   
+    assign shifter_res = (shifter_in1 << shifter_in2);
+
+    assign sll_res = shifter_res;
+    assign srl_res =  
+                 {
+    shifter_res[00],shifter_res[01],shifter_res[02],shifter_res[03],
+    shifter_res[04],shifter_res[05],shifter_res[06],shifter_res[07],
+    shifter_res[08],shifter_res[09],shifter_res[10],shifter_res[11],
+    shifter_res[12],shifter_res[13],shifter_res[14],shifter_res[15],
+    shifter_res[16],shifter_res[17],shifter_res[18],shifter_res[19],
+    shifter_res[20],shifter_res[21],shifter_res[22],shifter_res[23],
+    shifter_res[24],shifter_res[25],shifter_res[26],shifter_res[27],
+    shifter_res[28],shifter_res[29],shifter_res[30],shifter_res[31]
+                 };
+
+   //算术掩膜
+    wire [`DATA_WIDTH-1:0] eff_mask = (~(`DATA_WIDTH'b0)) >> shifter_in2;
+    assign sra_res = (srl_res & eff_mask) | ({32{shifter_op1[`DATA_WIDTH - 1]}} & (~eff_mask));
+
+    assign alu_sll_res = sll_res;
+    assign alu_srl_res = srl_res;
+    assign alu_sra_res = sra_res;
+    
+    
+   wire op_slttu = (op_slt | op_sltu);
+  //   The SLT and SLTU is reusing the adder to do the comparasion
+       // It is Less-Than if the adder result is negative
+   wire slttu_cmp_lt = op_slttu & adder_res[`DATA_WIDTH];
+   wire [`DATA_WIDTH-1:0] slttu_res = 
+               slttu_cmp_lt ?
+               `DATA_WIDTH'b1 : `DATA_WIDTH'b0;
                
-  input  alu_req_alu_sub ,
-  input  alu_req_alu_xor ,
-  input  alu_req_alu_sll ,
-  input  alu_req_alu_srl ,
-  input  alu_req_alu_sra ,
-  input  alu_req_alu_or  ,
-  input  alu_req_alu_and ,
-  input  alu_req_alu_slt ,
-  input  alu_req_alu_sltu,
-  input  alu_req_alu_lui ,
+   wire op_unsigned = op_sltu;
+   assign misc_op1 = alu_src_1;
+   assign misc_op2 = alu_src_2;
+   //若有符号 则扩展操作数的符号位 至加法器宽度 否则扩展0位
+   assign misc_adder_op1 = {{`ALU_ADDER_WIDTH-`DATA_WIDTH{(~op_unsigned) & misc_op1[`DATA_WIDTH-1]}},misc_op1};
+   assign misc_adder_op2 = {{`ALU_ADDER_WIDTH-`DATA_WIDTH{(~op_unsigned) & misc_op2[`DATA_WIDTH-1]}},misc_op2};
+
+   assign alu_slt_res = slttu_res;
+   assign alu_sltu_res = slttu_res;
+
+
 
 
 endmodule

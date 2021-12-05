@@ -14,7 +14,8 @@ module id_ex(
     input [`RS2_WIDTH - 1:0] rs2_id,
     input [`RS1_WIDTH - 1:0] rs1_id,
     input [`RD_WIDTH - 1:0] rd_id,
-    output reg [`ALU_CONTROL_CODE - 1: 0]ALU_control,
+    input [`ALU_OP_WIDTH - 1:0]alu_control_i,
+    output reg [`ALU_OP_WIDTH - 1:0]alu_control_o,
     output reg ALU_src_ex,
     output reg [3:0]control_flow_o,
     output reg [`RS2_WIDTH - 1:0] rs2_ex,
@@ -32,7 +33,7 @@ module id_ex(
         rs1_ex <= rs1_id;
         rd_ex <= rd_id;    
         ALU_src_ex <= control_flow_i[4];
-        ALU_control<= control_flow_i[`ALU_CONTROL_CODE + 4: 5];
+        alu_control_o <= alu_control_i;
 	end
 
 endmodule

@@ -23,7 +23,11 @@
 
 module riscv_core(
     input clk,
-    input rst_n
+    input rst_n,
+    input [`DATA_WIDTH - 1: 0]ram_rdata,
+    output ram_we,
+    output [`BUS_WIDTH - 1:0]ram_address,
+    output [`DATA_WIDTH - 1: 0]ram_wdata
     );
     
     wire [`BUS_WIDTH - 1:0]pc_out;
@@ -103,7 +107,12 @@ module riscv_core(
     
     wire [`DATA_WIDTH - 1:0] alu_input_num2;
     wire [`DATA_WIDTH - 1:0] alu_input_num1;
+//    wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;
+    wire [`ALU_OP_WIDTH - 1:0] alu_control_i;
+    wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;
+    wire [`ALU_INS_TYPE_WIDTH - 1:0] alu_optype_ex;
     
+    wire [`DATA_WIDTH - 1:0] alu_output_ex;
     
     // regs 
     pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
@@ -141,19 +150,27 @@ module riscv_core(
         .instruction(instruction_id),
         .write_reg(write_reg_ex),
         .ALU_src(ALU_src_ex),
-        .ALU_control(ALU_control_ex),
+        .ALU_control(alu_optype_ex),
         .mem2reg(mem2reg_ex),
         .read_mem(read_mem_ex),
         .write_mem(write_mem_ex),
         .imm_src(imm_src),
         .ins_opcode(ins_opcode),
         .ins_func7(ins_func7),
+        // ins_func6 unused, to be used in the future
         .ins_func6(ins_func6),
         .ins_func3(ins_func3),
         .imm_short(imm_short),
 	    .imm_long(imm_long)
     );
 
+    alucontrol alucontrol_inst(
+        .ins_optype(alu_optype_ex),
+        .ins_fun3(ins_func3),
+        .ins_fun7(ins_func7),
+        .alu_operation(alu_control_i)
+    );
+    
     //clock for WB.
     //pure logic for id
     regfile regfile_inst(
@@ -171,36 +188,8 @@ module riscv_core(
         .immediate_num(imm_short),
         .num(imm_extend)
     );
-    //regs
-    id_ex id_ex_inst(
-        .clk(clk),
-        .rst_n(rst_n),
-        .rd2_data_i(id_rs2_data),
-        .rd1_data_i(id_rs1_data),
-        .rd2_data_o(rd2_data_o),
-        .rd1_data_o(rd1_data_o),
-        .imm_alu_src_i(imm_alu_src_i),
-        .imm_alu_src_o(imm_alu_src_o),
-        .control_flow_i(control_flow_ex),
-        .rs2_id(instruction_id[24:20]),
-        .rs1_id(instruction_id[19:15]),
-        .rd_id(instruction_id[11:7]),
-        .ALU_control(ALU_control),
-        .ALU_src_ex(ALU_src),
-        .control_flow_o(control_flow_mem),
-        .rs2_ex(rs2_ex),
-        .rs1_ex(rs2_ex),
-        .rd_ex(rd_ex)
-    );
-
-     mux2num  mux2_rd2_switch(
-     .num0(rd2_data_o),
-     .num1(imm_alu_src_o),
-     .switch(ALU_src),
-     .muxout(alu_input_num2)
-     );
-     
-     //for auipc / jal
+    
+         //for auipc / jal
      mux2num imm_switch_for_pc_add(
      .num0({imm_long[`DATA_WIDTH - 1:1],1'b0}),
      .num1(imm_long),
@@ -216,6 +205,7 @@ module riscv_core(
      .muxout(imm_alu_src_i)
      );
      
+    //pure logic
     branch_addr_gen(
         .pc(pc_ex),
         .imm(imm_for_pc_addition),
@@ -223,12 +213,81 @@ module riscv_core(
     );
     
     
-          
-    //pure logic
-//    ex ex_inst(
-        
+    //regs
+    id_ex id_ex_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .rd2_data_i(id_rs2_data),
+        .rd1_data_i(id_rs1_data),
+        .rd2_data_o(rd2_data_o),
+        .rd1_data_o(rd1_data_o),
+        .imm_alu_src_i(imm_alu_src_i),
+        .imm_alu_src_o(imm_alu_src_o),
+        .control_flow_i(control_flow_ex),
+        .rs2_id(instruction_id[24:20]),
+        .rs1_id(instruction_id[19:15]),
+        .rd_id(instruction_id[11:7]),
+        .alu_control_i(alu_control_i),
+        .alu_control_o(alu_operation_input),
+        .ALU_src_ex(ALU_src),
+        .control_flow_o(control_flow_mem),
+        .rs2_ex(rs2_ex),
+        .rs1_ex(rs2_ex),
+        .rd_ex(rd_ex)
+    );
     
-//    );
     
+    mux2num  mux2_rd2_switch(
+        .num0(rd2_data_o),
+        .num1(imm_alu_src_o),
+        .switch(ALU_src),
+        .muxout(alu_input_num2)
+     );
+     
+    
+    alu alu_inst(
+        .alu_src_1(alu_input_num1),
+        .alu_src_2(alu_input_num2),
+        .alu_control(alu_operation_input),
+        .alu_output(alu_output)
+    );
+
+    wire [`DATA_WIDTH - 1 :0]mem_imm;
+
+    //regs
+    ex_mem ex_mem_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .alu_res_i(alu_output),
+        .imm_i(alu_input_num2),
+        .imm_o(mem_imm),
+        .mem_address_o(ram_address),
+        .mem_write_data_o(ram_wdata),
+        .control_flow_i(control_flow_mem),
+        .control_flow_o(control_flow_wb),
+        .mem_write(mem_write),
+        .mem_read(mem_read),
+        .rd_ex(rd_ex),
+        .rd_mem(rd_mem)
+    );
+    
+    
+    assign ram_we = mem_write;
+    
+    wire [`DATA_WIDTH - 1 :0]mem_wb_ram_rdata = {`DATA_WIDTH{mem_read}} & ram_rdata; 
+            
+    mem_wb mem_wb_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .mem_read_data_i(mem_wb_ram_rdata),
+        .imm_i(mem_imm),
+        .wb_data(wb_data),
+        .control_flow_i(control_flow_mem),
+        .control_flow_o(control_flow_wb),
+        .write_reg(write_reg),
+        .mem2reg(mem2reg),
+        .rd_mem(rd_mem),
+        .rd_wb(wb_reg)
+    );
     
 endmodule
