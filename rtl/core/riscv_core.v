@@ -47,13 +47,13 @@ module riscv_core(
     
     
     //control
-    wire [`ALU_CONTROL_CODE - 1: 0]ALU_control_ex;
+    wire [`ALU_CONTROL_CODE_WIDTH - 1: 0]ALU_control_ex;
     wire ALU_src_ex;
     wire read_mem_ex;
     wire write_mem_ex;
     wire mem2reg_ex;
     wire write_reg_ex;
-    wire [`ALU_CONTROL_CODE + 4 :0]control_flow_ex;
+    wire [`ALU_CONTROL_CODE_WIDTH + 4 :0]control_flow_ex;
     assign control_flow_ex = {ALU_control_ex,ALU_src_ex,read_mem_ex,write_mem_ex,mem2reg_ex,write_reg_ex};
     //wire branch_ex;
     
@@ -77,7 +77,7 @@ module riscv_core(
     wire read_mem;
     wire write_mem;
     wire ALU_src;
-    wire [`ALU_CONTROL_CODE - 1: 0]ALU_control;
+    wire [`ALU_CONTROL_CODE_WIDTH - 1: 0]ALU_control;
     //for auipc
     wire imm_src;
     

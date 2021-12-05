@@ -10,7 +10,7 @@ module id_ex(
     output reg [`DATA_WIDTH - 1:0]rd1_data_o,
     input [`DATA_WIDTH - 1:0] imm_alu_src_i,
     output reg [`DATA_WIDTH - 1:0] imm_alu_src_o,
-    input [`ALU_CONTROL_CODE + 4 :0]control_flow_i,
+    input [`ALU_CONTROL_CODE_WIDTH + 4 :0]control_flow_i,
     input [`RS2_WIDTH - 1:0] rs2_id,
     input [`RS1_WIDTH - 1:0] rs1_id,
     input [`RD_WIDTH - 1:0] rd_id,

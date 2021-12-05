@@ -37,9 +37,11 @@
 `define IMM_WIDTH 12
 
 //control input of alu 
-`define ALU_OP_WIDTH 4
-`define ALU_CONTROL_CODE 2
-
+`define ALU_OP_WIDTH 10
+`define ALU_CONTROL_CODE_WIDTH 3
+`define DEFINE_DATA_OR_BRANCH  5
+`define DEFINE_LOAD_OR_STORE  6
+`define ALU_INS_TYPE_WIDTH `ALU_CONTROL_CODE_WIDTH
 //type define p83
 `define R_TYPE       2'b0110011
 `define I_TYPE_LOAD  2'b0000011 
@@ -52,5 +54,29 @@
 `define UJ_TYPE      2'b1101111
 `define AUIPC_TYPE   2'b0010111
 
+`define ALU_CONTROL_R_TYPE      3'b000
+`define ALU_CONTROL_I_TYPE_LOAD 3'b001
+`define ALU_CONTROL_I_TYPE_ALUI 3'b010
+`define ALU_CONTROL_I_TYPE_JALR 3'b011
+`define ALU_CONTROL_S_TYPE      3'b100
+`define ALU_CONTROL_SB_TYPE     3'b101
+`define ALU_CONTROL_U_TYPE      3'b110
+`define ALU_CONTROL_NOT_USED    `ALU_CONTROL_U_TYPE
+`define ALU_CONTROL_UJ_TYPE     `ALU_CONTROL_NOT_USED
+`define ALU_CONTROL_AUIPC_TYPE  3'b111
 //other define
 `define FUNC6_WIDTH 6
+
+
+//alu define
+`define ALU_ADDER_WIDTH 35
+`define OP_DECINFO_ADD  0
+`define OP_DECINFO_SUB  `OP_DECINFO_ADD + 1 
+`define OP_DECINFO_XOR  `OP_DECINFO_SUB + 1 
+`define OP_DECINFO_SLL  `OP_DECINFO_XOR + 1 
+`define OP_DECINFO_SRL  `OP_DECINFO_SLL + 1 
+`define OP_DECINFO_SRA  `OP_DECINFO_SRL + 1 
+`define OP_DECINFO_OR  `OP_DECINFO_SRA + 1 
+`define OP_DECINFO_AND  `OP_DECINFO_OR + 1 
+`define OP_DECINFO_SLT  `OP_DECINFO_AND + 1 
+`define OP_DECINFO_SLTU  `OP_DECINFO_SLT + 1 
