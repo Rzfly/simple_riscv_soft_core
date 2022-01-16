@@ -51,9 +51,24 @@ module soc_top(
     wire [`DATA_WIDTH - 1:0]bus_axi_data_out;
     wire [`DATA_WIDTH - 1:0]bus_axi_data_in;
     
-    riscv_core  riscv_core_inst(
-        .clk(clk),
-        .rst_n(rst_n)
+    
+    wire [`BUS_WIDTH - 1:0]rom_address;
+    wire [`DATA_WIDTH - 1:0]rom_rdata;
+    wire [`BUS_WIDTH - 1:0]ram_address;
+    wire [`DATA_WIDTH - 1:0]ram_rdata;
+    wire [`DATA_WIDTH - 1:0]ram_wdata;
+    wire ram_we;
+    
+//    riscv_core  riscv_core_inst(
+//        .clk(clk),
+//        .rst_n(rst_n),
+//        .rom_rdata(rom_rdata),
+//        .rom_address(rom_address),
+//        .ram_rdata(ram_rdata),
+//        .ram_we(ram_we),
+//        .ram_address(ram_address),
+//        .ram_wdata(ram_wdata)
+    
 //        .rib_ex_addr_o(m0_addr_i),
 //        .rib_ex_data_i(m0_data_o),
 //        .rib_ex_data_o(m0_data_i),
@@ -73,15 +88,45 @@ module soc_top(
 //        .jtag_reset_flag_i(jtag_reset_req_o),
 
 //        .int_i(int_flag)
+//    );
+        
+    riscv_core  riscv_core_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .rom_address(rom_address),
+        .rom_rdata(rom_rdata),
+        .ram_address(ram_address),
+        .ram_rdata(ram_rdata),
+        .ram_wdata(ram_wdata),
+        .ram_we(ram_we)
     );
     
     ram ram_inst(
         .clk(clk),
         .we(1'b1),
         .rst_n(1'b1),
-        .addr(bus_axi_addr),
-        .datai(bus_axi_data_in),
-        .datao(bus_axi_data_out)
+        .addr(ram_address),
+        .datai(ram_wdata),
+        .datao(ram_rdata)
     );
+    
+    rom rom_inst(
+        .clk(clk),
+        .we_i(1'b1),
+        .rst_n(1'b1),
+        .addr_i(rom_address),
+//        .datai(bus_axi_data_in),
+        .data_o(rom_rdata)
+    );
+
+//    ram ram_inst(
+//        .clk(clk),
+//        .we(1'b1),
+//        .rst_n(1'b1),
+//        .addr(bus_axi_addr),
+//        .datai(bus_axi_data_in),
+//        .datao(bus_axi_data_out)
+//    );
+    
     
 endmodule

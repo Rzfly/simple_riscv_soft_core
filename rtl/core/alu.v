@@ -5,9 +5,9 @@ module alu(
     input [`DATA_WIDTH - 1:0]alu_src_1,
     input [`DATA_WIDTH - 1:0]alu_src_2,
     input [`ALU_OP_WIDTH - 1:0]operation,
+    output zero,
     output [`DATA_WIDTH - 1:0]alu_output
 );
-
 
     wire op_add = operation[`OP_DECINFO_ADD]; 
     wire op_sub = operation[`OP_DECINFO_SUB]; 
@@ -50,7 +50,7 @@ module alu(
     wire  [`DATA_WIDTH-1:0] srl_res;
     wire  [`DATA_WIDTH-1:0] sll_res;
     
-    wire [`DATA_WIDTH - 1:0]shifter_res;
+//    wire [`DATA_WIDTH - 1:0]shifter_res;
     wire [`DATA_WIDTH - 1:0]shifter_in1;
     wire [`DATA_WIDTH - 1:0]shifter_op1 = alu_src_1;
     wire [`DATA_WIDTH - 1:0]shifter_op2 = alu_src_2;
@@ -91,10 +91,8 @@ module alu(
     assign adder_in1 = {`ALU_ADDER_WIDTH{op_addsub}} & (misc_adder_op1);
     assign adder_in2 = {`ALU_ADDER_WIDTH{op_addsub}} & (adder_sub ? (~misc_adder_op1) : misc_adder_op1);
     
-    wire [`DATA_WIDTH - 1:0]alu_addsub_res = adder_res;
-   
-   
-   
+    assign alu_addsub_res = adder_res;
+  
     assign shifter_res = (shifter_in1 << shifter_in2);
 
     assign sll_res = shifter_res;
@@ -130,14 +128,12 @@ module alu(
    wire op_unsigned = op_sltu;
    assign misc_op1 = alu_src_1;
    assign misc_op2 = alu_src_2;
-   //若有符号 则扩展操作数的符号位 至加法器宽度 否则扩展0位
+   //若有符号 则扩展操作数的符号位 至加法器宽度 否则扩展0�?
    assign misc_adder_op1 = {{`ALU_ADDER_WIDTH-`DATA_WIDTH{(~op_unsigned) & misc_op1[`DATA_WIDTH-1]}},misc_op1};
    assign misc_adder_op2 = {{`ALU_ADDER_WIDTH-`DATA_WIDTH{(~op_unsigned) & misc_op2[`DATA_WIDTH-1]}},misc_op2};
 
    assign alu_slt_res = slttu_res;
    assign alu_sltu_res = slttu_res;
-
-
-
+   assign zero = ( ~( | alu_addsub_res )) & ( op_sub );
 
 endmodule

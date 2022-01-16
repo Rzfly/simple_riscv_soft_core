@@ -22,25 +22,21 @@
 
 `include "include.v"
 module pc_gen #(
-    parameter PC_WIDTH = `MEMORY_DEPTH
+    parameter PC_WIDTH = `BUS_WIDTH
 )(
     input clk,
     input rst_n,
     input [`BUS_WIDTH - 1:0]branch_addr,
     input branch,
     input hold,
-    input [PC_WIDTH - 1:0]pc_reset_value,
+//    input [PC_WIDTH - 1:0]pc_reset_value,
     output [PC_WIDTH - 1:0]pc_out
     );
 
     wire [PC_WIDTH - 1:0]pc_src;
-    assign pc_src = (rst_n)?
-                (hold)?pc_out:
-                (branch)?branch_addr:
-                (pc_out + `MEMORY_DEPTH'd1)
-                :pc_reset_value;
+    assign pc_src = (hold)?pc_out:(branch)?branch_addr:(pc_out + 4);
     
-    dff_rst2zero #(.WIDTH(`MEMORY_DEPTH )) dff_rst2zero_inst(
+    dff_rst2zero #(.WIDTH(PC_WIDTH )) dff_rst2zero_inst(
         .clk(clk),
         .rst_n(rst_n),
         .din(pc_src),

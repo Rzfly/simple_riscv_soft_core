@@ -19,7 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-
+`define RstDisable 0
+`define RstEnable 1
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define MEMORY_DEPTH 1024
@@ -31,6 +32,7 @@
 `define FUNC3_WIDTH 3
 `define RD_WIDTH 5
 `define OP_WIDTH 7
+`define RegBus `DATA_WIDTH
 
 //p59 I-type
 `define JAL_IMM_WIDTH 20
@@ -43,16 +45,16 @@
 `define DEFINE_LOAD_OR_STORE  6
 `define ALU_INS_TYPE_WIDTH `ALU_CONTROL_CODE_WIDTH
 //type define p83
-`define R_TYPE       2'b0110011
-`define I_TYPE_LOAD  2'b0000011 
-`define I_TYPE_ALUI  2'b0010011 
-`define I_TYPE_JALR  2'b1100011
+`define R_TYPE       7'b0110011
+`define I_TYPE_LOAD  7'b0000011 
+`define I_TYPE_ALUI  7'b0010011 
+`define I_TYPE_JALR  7'b1100011
 
-`define S_TYPE       2'b0100011
-`define SB_TYPE      2'b1100111
-`define U_TYPE       2'b0110111
-`define UJ_TYPE      2'b1101111
-`define AUIPC_TYPE   2'b0010111
+`define S_TYPE       7'b0100011
+`define SB_TYPE      7'b1100111
+`define U_TYPE       7'b0110111
+`define UJ_TYPE      7'b1101111
+`define AUIPC_TYPE   7'b0010111
 
 `define ALU_CONTROL_R_TYPE      3'b000
 `define ALU_CONTROL_I_TYPE_LOAD 3'b001
@@ -76,7 +78,7 @@
 `define OP_DECINFO_SLL  `OP_DECINFO_XOR + 1 
 `define OP_DECINFO_SRL  `OP_DECINFO_SLL + 1 
 `define OP_DECINFO_SRA  `OP_DECINFO_SRL + 1 
-`define OP_DECINFO_OR  `OP_DECINFO_SRA + 1 
+`define OP_DECINFO_OR   `OP_DECINFO_SRA + 1 
 `define OP_DECINFO_AND  `OP_DECINFO_OR + 1 
 `define OP_DECINFO_SLT  `OP_DECINFO_AND + 1 
 `define OP_DECINFO_SLTU  `OP_DECINFO_SLT + 1 

@@ -47,4 +47,8 @@ module if_id(
             end
         end
     end
+
+//    assign instruction_o = (flush | ~rst_n )? 0 : 
+//                            (hold) instruction_i;
+        
 endmodule

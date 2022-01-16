@@ -11,7 +11,7 @@ module regfile(
 	output wire[`DATA_WIDTH - 1:0] rd1_data,rd2_data
 );
 
-	reg [31:0] rf[31:0];
+	reg [`DATA_WIDTH - 1:0] rf[31:0];
 
 	always @(negedge clk) begin
 		if(we) begin
