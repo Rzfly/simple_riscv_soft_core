@@ -3,6 +3,7 @@
 
 module regfile(
 	input wire clk,
+	input wire rst_n,
 	input wire we,
 	input wire[`RS2_WIDTH - 1:0] rs2,
 	input wire[`RS1_WIDTH - 1:0] rs1,
@@ -12,9 +13,14 @@ module regfile(
 );
 
 	reg [`DATA_WIDTH - 1:0] rf[31:0];
-
+    integer i;
 	always @(negedge clk) begin
-		if(we) begin
+	    if(rst_n)begin
+	       for(i = 0 ; i < 32 ; i = i + 1)begin
+	               rf[i] <= 0;
+	       end
+	    end
+		else if(we) begin
 			 rf[wa] <= wd;
 		end
 	end

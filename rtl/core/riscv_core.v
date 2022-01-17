@@ -190,6 +190,7 @@ module riscv_core(
     //pure logic for id
     regfile regfile_inst(
         .clk(clk),
+        .rst_n(rst_n),
         .we(write_reg_wb),
         .rs2(instruction_id[24:20]),
         .rs1(instruction_id[19:15]),
@@ -221,12 +222,12 @@ module riscv_core(
      );
      
     //pure logic
-    branch_addr_gen(
-        .pc(pc_ex),
-        .imm(imm_for_pc_addition),
-        .branch_addr(pc_branch_addr)
-    );
-    
+//    branch_addr_gen(
+//        .pc(pc_ex),
+//        .imm(imm_for_pc_addition),
+//        .branch_addr(pc_branch_addr)
+//    );
+    assign pc_branch_addr = pc_ex + imm_for_pc_addition;
     
     //regs
     id_ex id_ex_inst(
@@ -264,9 +265,9 @@ module riscv_core(
     alu alu_inst(
         .alu_src_1(alu_input_num1),
         .alu_src_2(alu_input_num2),
-        .alu_control(alu_operation_input),
+        .operation(alu_operation_input),
         .alu_output(alu_output_ex),
-        .alu_zero(alu_zero)
+        .zero(alu_zero)
     );
 
     wire [`DATA_WIDTH - 1 :0]mem_imm;

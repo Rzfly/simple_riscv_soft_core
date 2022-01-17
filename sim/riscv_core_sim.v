@@ -15,15 +15,16 @@ module riscv_core_sim();
     wire [`RegBus - 1: 0] x26;
     wire [`RegBus - 1: 0] x27;
     
-    assign x3 = soc_top_inst. riscv_core_inst.regfile_inst.rf[3];
-    assign x26 = soc_top_inst. riscv_core_inst.regfile_inst.rf[26];
-    assign x27 = soc_top_inst. riscv_core_inst.regfile_inst.rf[27];
+    assign x3 = soc_top_inst.riscv_core_inst.regfile_inst.rf[3];
+    assign x26 = soc_top_inst.riscv_core_inst.regfile_inst.rf[26];
+    assign x27 = soc_top_inst.riscv_core_inst.regfile_inst.rf[27];
     
     integer r;
 
     initial begin
         clk = 0;
         rst_n = `RstEnable;
+        r = 0;
         $display("test running...");
         #40
         rst_n = `RstDisable;
@@ -54,7 +55,7 @@ module riscv_core_sim();
             $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             $display("fail testnum = %2d", x3);
             for (r = 0; r < 32; r = r + 1)
-                $display("x%2d = 0x%x", r, tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[r]);
+                $display("x%2d = 0x%x", r, soc_top_inst.riscv_core_inst.regfile_inst.rf[r]);
         end
 `endif
         $finish;
@@ -69,7 +70,7 @@ module riscv_core_sim();
 
     // read mem data
     initial begin
-        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\tests\\inst.data", soc_top_inst.rom_inst.m._rom);
+        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\tests\\inst.data", soc_top_inst.rom_inst._rom);
     end
 
     // generate wave file, used by gtkwave

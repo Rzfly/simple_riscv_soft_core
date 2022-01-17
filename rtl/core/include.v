@@ -19,8 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`define RstDisable 0
-`define RstEnable 1
+`define RstDisable 1
+`define RstEnable 0
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define MEMORY_DEPTH 1024
