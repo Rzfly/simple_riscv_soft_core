@@ -27,6 +27,8 @@ module if_id(
     input rst_n,
     input [`DATA_WIDTH - 1:0]instruction_i,
     output reg [`DATA_WIDTH - 1:0]instruction_o,
+    input [`BUS_WIDTH - 1:0]pc_in,
+    output reg [`BUS_WIDTH - 1:0]pc_out,
     input hold,
     input flush
     );
@@ -44,6 +46,23 @@ module if_id(
             end
             else begin
                 instruction_o <= instruction_i;
+            end
+        end
+    end
+    
+    always@(posedge clk)
+    begin
+        if ( ~rst_n )
+        begin
+            pc_out <= `BUS_WIDTH'd0;
+        end
+        else
+        begin
+            if( hold | flush )begin
+                pc_out <= pc_out;
+            end
+            else begin
+                pc_out <= pc_in;
             end
         end
     end

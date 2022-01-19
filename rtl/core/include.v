@@ -19,11 +19,12 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`define RstDisable 0
-`define RstEnable 1
+`define RstDisable 1
+`define RstEnable 0
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define MEMORY_DEPTH 1024
+`define MEMORY_WIDTH 10
 
 //p58 R-type
 `define FUNC7_WIDTH 7
@@ -68,7 +69,6 @@
 `define ALU_CONTROL_AUIPC_TYPE  3'b111
 //other define
 `define FUNC6_WIDTH 6
-
 
 //alu define
 `define ALU_ADDER_WIDTH 35

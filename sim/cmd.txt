@@ -1,0 +1,1 @@
+python sim_new_nowave.py ..\tests\isa\generated\rv32ui-p-add.bin inst.data
