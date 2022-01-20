@@ -5,13 +5,12 @@ module alu(
     input [`DATA_WIDTH - 1:0]alu_src_1,
     input [`DATA_WIDTH - 1:0]alu_src_2,
     input [`ALU_OP_WIDTH - 1:0]operation,
-    output zero,
+    output alu_zero,
     output [`DATA_WIDTH - 1:0]alu_output
 );
 
     wire op_add = operation[`OP_DECINFO_ADD]; 
     wire op_sub = operation[`OP_DECINFO_SUB]; 
-    wire op_addsub = op_add | op_sub;
     wire op_xor = operation[`OP_DECINFO_XOR];
     wire op_sll = operation[`OP_DECINFO_SLL];
     wire op_srl = operation[`OP_DECINFO_SRL];
@@ -20,6 +19,7 @@ module alu(
     wire op_and = operation[`OP_DECINFO_AND];
     wire op_slt = operation[`OP_DECINFO_SLT];
     wire op_sltu = operation[`OP_DECINFO_SLTU];
+    wire adder_add = op_add; 
     wire adder_sub =                    (
                    // The original sub instruction
                (op_sub) 
@@ -28,13 +28,16 @@ module alu(
                 op_slt | op_sltu 
                ));
     wire op_shift;
+    wire op_addsub;
     assign op_shift = op_sra | op_sll | op_srl;   
+    assign op_addsub = adder_add | adder_sub;
           
-    wire [`DATA_WIDTH - 1:0]adder_in1;
-    wire [`DATA_WIDTH - 1:0]adder_in2;
+    wire [`ALU_ADDER_WIDTH - 1:0]adder_in1;
+    wire [`ALU_ADDER_WIDTH - 1:0]adder_in2;
+    wire [`ALU_ADDER_WIDTH - 1:0] adder_res;
+    wire [`DATA_WIDTH - 1:0] alu_addsub_res;
 
 
-    wire [`DATA_WIDTH - 1:0]alu_addsub_res;
     wire [`DATA_WIDTH - 1:0]alu_xor_res = alu_src_1 ^ alu_src_2;
     wire [`DATA_WIDTH - 1:0]shifter_res;
     wire [`DATA_WIDTH - 1:0]alu_sll_res;
@@ -45,7 +48,6 @@ module alu(
     wire [`DATA_WIDTH - 1:0]alu_slt_res;
     wire [`DATA_WIDTH - 1:0]alu_sltu_res;
     
-    wire  [`DATA_WIDTH-1:0] adder_res;
     wire  [`DATA_WIDTH-1:0] sra_res;
     wire  [`DATA_WIDTH-1:0] srl_res;
     wire  [`DATA_WIDTH-1:0] sll_res;
@@ -88,10 +90,14 @@ module alu(
     ( {`DATA_WIDTH{op_slt}} & alu_slt_res )| 
     ( {`DATA_WIDTH{op_sltu}} & alu_sltu_res );
     
+    wire adder_addsub;
+    assign adder_addsub = adder_add | adder_sub; 
     assign adder_in1 = {`ALU_ADDER_WIDTH{op_addsub}} & (misc_adder_op1);
-    assign adder_in2 = {`ALU_ADDER_WIDTH{op_addsub}} & (adder_sub ? (~misc_adder_op1) : misc_adder_op1);
-    
-    assign alu_addsub_res = adder_res;
+    assign adder_in2 = {`ALU_ADDER_WIDTH{op_addsub}} & (adder_sub ? (~misc_adder_op2) : misc_adder_op2);
+    wire adder_cin;
+    assign adder_cin = adder_addsub & adder_sub;
+    assign adder_res = adder_in1 + adder_in2 + adder_cin;
+    assign alu_addsub_res = adder_res[`DATA_WIDTH - 1 : 0];
   
     assign shifter_res = (shifter_in1 << shifter_in2);
 
@@ -134,6 +140,6 @@ module alu(
 
    assign alu_slt_res = slttu_res;
    assign alu_sltu_res = slttu_res;
-   assign zero = ( ~( | alu_addsub_res )) & ( op_sub );
+   assign alu_zero = ( ~( | alu_addsub_res )) & ( op_sub );
 
 endmodule

@@ -38,6 +38,7 @@ module sirv_sim_ram
   input             cs,
   input             we,
   input  [MW-1:0]   wem,
+  input  rst_n,
   output [DW-1:0]   dout
 );
 
@@ -48,14 +49,22 @@ module sirv_sim_ram
 
     assign ren = cs & (~we);
     assign wen = ({MW{cs & we}} & wem);
-
-
+    
+    integer j;
+    initial begin
+        for( j = 0; j < DP; j = j + 1)begin
+            mem_r[j] <= 0;  
+       end
+    end
 
     genvar i;
 
     always @(posedge clk)
     begin
-        if (ren) begin
+        if(~rst_n)begin
+            addr_r <= 0;
+        end
+        else if (ren) begin
             addr_r <= addr;
         end
     end
@@ -64,14 +73,20 @@ module sirv_sim_ram
       for (i = 0; i < MW; i = i+1) begin :mem
         if((8*i+8) > DW ) begin: last
           always @(posedge clk) begin
-            if (wen[i]) begin
+            if(~rst_n)begin
+               mem_r[addr][DW-1:8*i] <= 0;
+            end
+            else if (wen[i]) begin
                mem_r[addr][DW-1:8*i] <= din[DW-1:8*i];
             end
           end
         end
         else begin: non_last
           always @(posedge clk) begin
-            if (wen[i]) begin
+            if(~rst_n)begin
+               mem_r[addr][8*i+7:8*i] <= 0;
+            end
+            else if (wen[i]) begin
                mem_r[addr][8*i+7:8*i] <= din[8*i+7:8*i];
             end
           end

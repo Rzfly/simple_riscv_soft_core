@@ -103,7 +103,7 @@ module soc_top(
     
     ram ram_inst(
         .clk(clk),
-        .we(1'b1),
+        .we(ram_we),
         .rst_n(1'b1),
         .addr(ram_address),
         .datai(ram_wdata),
@@ -112,7 +112,7 @@ module soc_top(
     
     rom rom_inst(
         .clk(clk),
-        .we_i(1'b1),
+        .we_i(1'b0),
         .rst_n(1'b1),
         .addr_i(rom_address),
 //        .datai(bus_axi_data_in),

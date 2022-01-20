@@ -15,11 +15,19 @@ module regfile(
 	reg [`DATA_WIDTH - 1:0] rf[31:0];
     integer i;
 	always @(negedge clk) begin
+<<<<<<< HEAD
 	    if(rst_n)begin
 	       for(i = 0 ; i < 32 ; i = i + 1)begin
 	               rf[i] <= 0;
 	       end
 	    end
+=======
+        if(~rst_n)begin
+            for(i = 0 ; i < 32 ; i = i + 1 )begin
+			     rf[i] <= 0;
+            end 
+        end
+>>>>>>> 86b93ae873686f74bf4258532c6e74d7157cae24
 		else if(we) begin
 			 rf[wa] <= wd;
 		end

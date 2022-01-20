@@ -56,11 +56,11 @@ module ram #(
 
   .rst_n (rst_n ),
   .clk (clk ),
-  .cs  (1'b0  ),
+  .cs  (1'b1  ),
   .we  (we  ),
   .addr(addr),
   .din (datai ),
-  .wem (we ),
+  .wem ({4{we}} ),
   .dout(datao)
   );
 endmodule

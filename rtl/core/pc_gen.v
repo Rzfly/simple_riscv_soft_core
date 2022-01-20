@@ -21,8 +21,9 @@
 
 
 `include "include.v"
+
 module pc_gen #(
-    parameter PC_WIDTH = `BUS_WIDTH
+    parameter PC_WIDTH = 31
 )(
     input clk,
     input rst_n,
@@ -30,13 +31,13 @@ module pc_gen #(
     input branch,
     input hold,
 //    input [PC_WIDTH - 1:0]pc_reset_value,
-    output [PC_WIDTH - 1:0]pc_out
+    output [`BUS_WIDTH - 1:0]pc_out
     );
 
-    wire [PC_WIDTH - 1:0]pc_src;
+    wire [`BUS_WIDTH - 1:0]pc_src;
     assign pc_src = (hold)?pc_out:(branch)?branch_addr:(pc_out + 4);
     
-    dff_rst2zero #(.WIDTH(PC_WIDTH )) dff_rst2zero_inst(
+    dff_rst2zero #(.WIDTH(`BUS_WIDTH)) dff_rst2zero_inst(
         .clk(clk),
         .rst_n(rst_n),
         .din(pc_src),
