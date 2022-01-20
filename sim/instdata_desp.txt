@@ -33,7 +33,7 @@ sub  x2, x19, x3
 let imm = 12'bff1
 code:
 
-imm   rs1   fun3 rd op 
+imm                  rs1   fun3 rd op 
 000000000001 00001 000 00001 0010011
 imm   rs1   fun3 rd op 
 ff1   00001 000   093
@@ -56,6 +56,8 @@ add x14,x2,x2
 sd x15,100(x2)
 
 
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
 fun7           rs2         rs1      fun3   rd          op 
 0100000  00011    00001   000   00010 0110011
 fun7           rs2         rs1      fun3   rd          op 
@@ -79,11 +81,235 @@ ff108093
 
 
 
-
 控制冒险测试用例
 静态预测
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+addi x0,  x0, 000
+addi x0,  x0, 000
+addi x0,  x0, 000
+beq x1,x2, 200
+addi x3,  x3, ff3
+正确结果：不跳转 
+200D =0 0000 1100 1000B
+0 + 000110      0100+0
+重排= 0000110 01000
+long     000..001010100
+shifted  10100010
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm                  rs1   fun3    rd    op 
+000000000000 00000 000 00000 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001      000   01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 000  00011 0010011
 
 ff108093
+ff210113
+00000013
+00000013
+0c208463
+ff318193
+passed
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+nop
+nop
+bne x1,x2, 200
+addi x3,  x3, ff3
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001     001   01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+00000013
+00000013
+0c209463
+ff318193
+passed
+
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+nop
+nop
+blt  x1,x2, 200
+addi x3,  x3, ff3
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001     100   01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+00000013
+00000013
+0c20c463
+ff318193
+passed
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+nop
+nop
+bge  x1,x2, 200
+addi x3,  x3, ff3
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001     101   01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+00000013
+00000013
+0c20d463
+ff318193
+passed
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+nop
+nop
+bltu x1,x2, 200
+addi x3,  x3, ff3
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001     110   01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+00000013
+00000013
+0c20e463
+ff318193
+passed
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+bgeu x1,x2, 100
+addi x3,  x3, ff3
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm7	 rs2      rs1       fun3    imm5      op 
+0000110  00010  00001     111    01000  1100011
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+00000013
+00000013
+0c20f463
+ff318193
+passed
+
+addi x1,  x1, ff1
+addi x2,  x2, ff2
+如果有奇数地址会忽略奇数
+jal    x4, 200
+addi x3,  x3, ff3
+
+100D = 0 00000000 0 00011 00100B
+200D = 0000 0000 0000 0000 1100 1000B
+重排 = 00001100100000000000
+
+imm                  rs1   fun3    rd    op 
+111111110001 00001 000 00001 0010011
+imm                  rs1   fun3    rd    op 
+111111110010 00010 000 00010 0010011
+imm20	 	              rd           op	
+00001100100000000000   00100   1101111
+imm                  rs1   fun3    rd    op 
+111111110011 00011 001 00011 0010011
+
+ff108093
+ff210113
+0c80026f
+ff318193
+
+addi x1,  x1, 001
+addi x2,  x2, 002
+nop
+jalr   x4,  x1, 100
+addi x3,  x3, 003
+
+100D = 0 00000000 0 00011 00100B
+重排 = 00001100100000000000
+
+imm                        rs1     fun3        rd        op 
+000000000001   00001   000      00001  0010011
+imm                        rs1     fun3        rd        op 
+000000000010   00010   000      00010  0010011
+imm12	              rs1    fun3    rd          op	
+000001100100   00001  000    00100  1100111  
+imm                        rs1     fun3        rd        op 
+000000000011   00011   000      00011  0010011
+
+00108093
+00210113
+00000013
+06408267
+00318193
 
 
 
+真值表 
+
+ins   auipc	 alusrc	 jal     branch 	 addin1	 addin2	   aluin1	  aluin2     branchaddr        rd
+jal      1	    1	  1          1                    pc             4               pc         imm         alu                 add
+jalr     0          1          1        	1	   pc              4	      rs1        imm         alu                  add
+bne    0          0          0        	1	   pc            imm           rs1          rs2          add                 unused
+auipc  1           1          0     	0	  unused      unused      pc          imm       unused              alu
+add    0           1          0      	0	  unused     unused 	     rs1         rs2          unused             alu
+
+
+原则 为了减少前递单元的设计难度，与pc有关的相加最好一律给单独加法器。
+然而，jal指令需要用到两遍pc 所以无法实现这种优化。
+另一种做法，观察真值表，凡是需要写入rd的计算都由alu来完成
+此时目标真值表如下
+
+ins   auipc	 alusrc	 jalr     branch 	 addin1	 addin2	   aluin1	  aluin2     branchaddr        rd
+jal      1	    1	  0          1                    pc             imm           pc            4           add                 alu
+jalr     1          1          1      	1	   rs1            imm	    pc             4             add 	         alu
+bne    0          0          0        	1	   pc            imm           rs1          rs2          add                 unused
+auipc  1           1          0     	0	  unused      unused      pc          imm       unused              alu
+add    0           0          0      	0	  unused     unused 	     rs1         rs2          unused             alu
+
+目标，能不能把jal信号省掉？
+已知 alusrc  不能省略
+已知 auipc  不能省略 分别控制了alu的两个输入
+已知 branch不能省略
+所以jal不能省略，但是也不用增加新的信号
+如果 auipc = 1 且banch = 0 说明指令必为jal jalr之一 再用jalr就可以区分jal jalr

@@ -36,13 +36,19 @@ module alucontrol(
     
     assign ins_rtype = (ins_optype == `ALU_CONTROL_R_TYPE)?1'b1:1'b0;
     assign ins_itype = (ins_optype == `ALU_CONTROL_I_TYPE_ALUI)?1'b1:1'b0;
+    //load
     assign ins_ltype = (ins_optype == `ALU_CONTROL_I_TYPE_LOAD)?1'b1:1'b0;    
+    //store
     assign ins_stype = (ins_optype == `ALU_CONTROL_S_TYPE)?1'b1:1'b0;
+    //bne
     assign ins_sbtype = (ins_optype == `ALU_CONTROL_SB_TYPE)?1'b1:1'b0;
     assign ins_utype = (ins_optype == `ALU_CONTROL_U_TYPE)?1'b1:1'b0;
+    //jal
     assign ins_ujtype = (ins_optype == `ALU_CONTROL_UJ_TYPE)?1'b1:1'b0;
+    //auipc
     assign ins_auipctype = (ins_optype == `ALU_CONTROL_AUIPC_TYPE)?1'b1:1'b0;
     assign ins_ri_type = ins_rtype | ins_itype;
+    //jalr
     assign ins_jtype = (ins_optype == `ALU_CONTROL_I_TYPE_JALR);
     
     assign alu_operation[`OP_DECINFO_ADD] = alu_add_req;
@@ -58,12 +64,12 @@ module alucontrol(
     
     
     //branch 地址已经在id阶段被计�?
-    assign alu_add_req = (ins_ri_type & (ins_fun3 == 3'b000) & ~ins_fun7 [5])
-                        |(ins_stype)|ins_ltype;
+    assign alu_add_req = (ins_rtype & (ins_fun3 == 3'b000) & ~ins_fun7 [5])|(ins_itype & (ins_fun3 == 3'b000))
+                        |(ins_stype)|ins_ltype|ins_jtype|ins_ujtype|ins_auipctype;
     //data-type
-    assign alu_sub_req = (ins_ri_type & (ins_fun3 == 3'b000) & ins_fun7 [5])
-                        |(ins_jtype  & (ins_fun3 == 3'b000))
-                        |(ins_jtype  & (ins_fun3 == 3'b001));
+    assign alu_sub_req = (ins_rtype & (ins_fun3 == 3'b000) & ins_fun7 [5])
+                        |(ins_sbtype  & (ins_fun3 == 3'b000))
+                        |(ins_sbtype  & (ins_fun3 == 3'b001));
     assign alu_xor_req = ins_ri_type & (ins_fun3 == 3'b100);
     assign alu_sll_req = ins_ri_type & (ins_fun3 == 3'b001);
     assign alu_srl_req = ins_ri_type & (ins_fun3 == 3'b101) & ~ins_fun7 [5];
@@ -71,11 +77,11 @@ module alucontrol(
     assign alu_or_req  = ins_ri_type & (ins_fun3 == 3'b110) ;
     assign alu_and_req = ins_ri_type & (ins_fun3 == 3'b111) ;
     assign alu_slt_req = ins_ri_type & (ins_fun3 == 3'b010)
-                        |(ins_jtype  & (ins_fun3 == 3'b100))
-                        |(ins_jtype  & (ins_fun3 == 3'b101));
+                        |(ins_sbtype  & (ins_fun3 == 3'b100))
+                        |(ins_sbtype  & (ins_fun3 == 3'b101));
     assign alu_sltu_req = ins_ri_type & (ins_fun3 == 3'b011)
-                        |(ins_jtype  & (ins_fun3 == 3'b110))
-                        |(ins_jtype  & (ins_fun3 == 3'b111));
+                        |(ins_sbtype  & (ins_fun3 == 3'b110))
+                        |(ins_sbtype  & (ins_fun3 == 3'b111));
     
     always@(*)begin
         if(ins_stype)begin

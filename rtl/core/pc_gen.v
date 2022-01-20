@@ -28,14 +28,14 @@ module pc_gen #(
     input clk,
     input rst_n,
     input [`BUS_WIDTH - 1:0]branch_addr,
-    input branch,
+    input jump,
     input hold,
 //    input [PC_WIDTH - 1:0]pc_reset_value,
     output [`BUS_WIDTH - 1:0]pc_out
     );
 
     wire [`BUS_WIDTH - 1:0]pc_src;
-    assign pc_src = (hold)?pc_out:(branch)?branch_addr:(pc_out + 4);
+    assign pc_src = (hold)?pc_out:(jump)?branch_addr:(pc_out + 4);
     
     dff_rst2zero #(.WIDTH(`BUS_WIDTH)) dff_rst2zero_inst(
         .clk(clk),

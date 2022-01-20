@@ -25,17 +25,11 @@
 module if_id(
     input clk,
     input rst_n,
+    input flush,
     input [`DATA_WIDTH - 1:0]instruction_i,
     output reg [`DATA_WIDTH - 1:0]instruction_o,
-<<<<<<< HEAD
-    input pc_in,
-    output reg pc_out,
-=======
     input [`BUS_WIDTH - 1:0]pc_in,
-    output reg [`BUS_WIDTH - 1:0]pc_out,
->>>>>>> 86b93ae873686f74bf4258532c6e74d7157cae24
-    input hold,
-    input flush
+    output reg [`BUS_WIDTH - 1:0]pc_out
     );
     
     always@(posedge clk)
@@ -43,47 +37,15 @@ module if_id(
         if (flush | ~rst_n )
         begin
             instruction_o <= `DATA_WIDTH'd0;
-        end
-        else
-        begin
-            if( hold) begin
-                instruction_o <= instruction_o;
-            end
-            else begin
-                instruction_o <= instruction_i;
-            end
-        end
-    end
-    
-    always@(posedge clk)
-    begin
-        if ( ~rst_n )
-        begin
             pc_out <= `BUS_WIDTH'd0;
         end
         else
         begin
-            if( hold | flush )begin
-                pc_out <= pc_out;
-            end
-            else begin
-                pc_out <= pc_in;
-            end
-        end
-    end
-
-   always@(posedge clk)
-    begin
-        if ( ~rst_n )
-        begin
-            pc_out <= `DATA_WIDTH'd0;
-        end
-        else
-        begin
+            instruction_o <= instruction_i;
             pc_out <= pc_in;
         end
     end
-    
+
 //    assign instruction_o = (flush | ~rst_n )? 0 : 
 //                            (hold) instruction_i;
         

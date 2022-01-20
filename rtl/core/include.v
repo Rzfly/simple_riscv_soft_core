@@ -49,10 +49,10 @@
 `define R_TYPE       7'b0110011
 `define I_TYPE_LOAD  7'b0000011 
 `define I_TYPE_ALUI  7'b0010011 
-`define I_TYPE_JALR  7'b1100011
+`define I_TYPE_JALR  7'b1100111
 
 `define S_TYPE       7'b0100011
-`define SB_TYPE      7'b1100111
+`define SB_TYPE      7'b1100011
 `define U_TYPE       7'b0110111
 `define UJ_TYPE      7'b1101111
 `define AUIPC_TYPE   7'b0010111

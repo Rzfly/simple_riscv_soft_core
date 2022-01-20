@@ -16,6 +16,7 @@ module control(
 	//imm long or short
 	output reg  imm_src,
 	output reg  branch,
+	output reg  jalr,
 	output reg  auipc,
 	output [`OP_WIDTH - 1:0]ins_opcode,
 	output [`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC7_WIDTH]ins_func7,
@@ -59,6 +60,7 @@ module control(
                 imm_src  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_R_TYPE;
                 imm_short <= `IMM_WIDTH'd0;
                 imm_long <= `DATA_WIDTH'd0;
@@ -74,6 +76,7 @@ module control(
                 imm_src  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
+                jalr  <= 1'b0;
                 //add rs as addr. no need to shift 
                 ALU_control <= `ALU_CONTROL_I_TYPE_LOAD;
                 imm_short <= instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
@@ -90,6 +93,7 @@ module control(
                 imm_shift  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_I_TYPE_ALUI;
                 //add rs
                 imm_short <= instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
@@ -105,7 +109,8 @@ module control(
                 imm_src  <= 1'b0;
                 imm_shift  <= 1'b0;
                 branch <= 1'b1;
-                auipc  <= 1'b0;
+                auipc  <= 1'b1;
+                jalr  <= 1'b1;
                 ALU_control <= `ALU_CONTROL_I_TYPE_JALR;
                 // add rs no need to shift
                 imm_short <= instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
@@ -122,6 +127,7 @@ module control(
                 imm_src  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_S_TYPE;
                 //add rs2 no need to shift
                 imm_short <= {instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC7_WIDTH],instruction[`OP_WIDTH + `RD_WIDTH - 1:`OP_WIDTH]};
@@ -134,13 +140,14 @@ module control(
                 read_mem <= 1'b0;
                 write_mem <= 1'b0;
                 //����ʹ��alu����ƫ�Ƶ�ַ
-                ALU_src  <= 1'b1;
+                ALU_src  <= 1'b0;
                 imm_src  <= 1'b1;
                 imm_shift  <= 1'b1;
                 branch <= 1'b1;
                 auipc  <= 1'b0;
-                imm_short <= `IMM_WIDTH'd0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_SB_TYPE;
+                imm_short <= `IMM_WIDTH'd0;
                 // 20'd0 imm12 imm11 imm[10:5] imm[4:1]
                 //add pc. not shifted
                 imm_long <= { 20'd0, instruction[`DATA_WIDTH - 1],instruction[`OP_WIDTH],instruction[`DATA_WIDTH - 2:`DATA_WIDTH - 7],instruction[`OP_WIDTH + 4:`OP_WIDTH + 1]};
@@ -157,6 +164,7 @@ module control(
                 imm_shift  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_U_TYPE;
                 imm_short <= `IMM_WIDTH'd0;
                 //lower bits neglected
@@ -175,6 +183,7 @@ module control(
                 imm_shift  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b1;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_AUIPC_TYPE;
                 imm_short <= `IMM_WIDTH'd0;
                 //lower bits remains to be added by pc
@@ -192,7 +201,8 @@ module control(
                 imm_src  <= 1'b1;
                 imm_shift  <= 1'b1;
                 branch <= 1'b1;
-                auipc  <= 1'b0;
+                auipc  <= 1'b1;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_UJ_TYPE;
                 imm_short <= `IMM_WIDTH'd0;
                 //11'd0, imm[20]. imm[19:12],imm[11],imm[10:1],0
@@ -211,6 +221,7 @@ module control(
                 imm_src  <= 1'b0;
                 auipc  <= 1'b0;
                 branch <= 1'b0;
+                jalr  <= 1'b0;
                 ALU_control <= `ALU_CONTROL_NOT_USED;
                 imm_short <= `IMM_WIDTH'd0;
                 imm_long <= `DATA_WIDTH'd0;
