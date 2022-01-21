@@ -4,9 +4,9 @@
 module forwarding(
 	input [`RS1_WIDTH -1:0]rs1_ex,
 	input [`RS2_WIDTH -1:0]rs2_ex,
-	input  rd_wb,
+	input [`RD_WIDTH -1:0]rd_wb,
 	input  write_reg_wb,
-	input  rd_mem,
+	input [`RD_WIDTH -1:0]rd_mem,
 	input  write_reg_mem,
 	output [2:0]rs1_forward,
 //	output [`RS1_WIDTH -1:0]rs1_forward_data
@@ -22,16 +22,16 @@ module forwarding(
 //以上，开始编程！
 
 	//前�?�wb阶段的数�?  但是mem阶段优先
-	assign rs1_forward[2] = (rd_wb == rs1_ex)? (~rs1_forward[1] & write_reg_wb):1'b0;
+	assign rs1_forward[2] = (rd_wb == rs1_ex)? (~rs1_forward[1] & write_reg_wb & (|rd_wb) ):1'b0;
 	//前�?�mem阶段的数�? 
-	assign rs1_forward[1] = (rd_mem == rs1_ex)? (write_reg_mem):1'b0;
+	assign rs1_forward[1] = (rd_mem == rs1_ex)? (write_reg_mem & (|rd_mem)):1'b0;
 	//不前�?
 	assign rs1_forward[0] = ~rs1_forward[2] & ~rs1_forward[1];
 	
 	//前�?�wb阶段的数�?  但是mem阶段优先
-	assign rs2_forward[2] = (rd_wb == rs2_ex)? (~rs2_forward[1] & write_reg_wb):1'b0;
+	assign rs2_forward[2] = (rd_wb == rs2_ex)? (~rs2_forward[1] & write_reg_wb & (|rd_wb) ):1'b0;
 	//前�?�mem阶段的数�? 
-	assign rs2_forward[1] = (rd_mem == rs2_ex)? (write_reg_mem):1'b0;
+	assign rs2_forward[1] = (rd_mem == rs2_ex)? (write_reg_mem & (|rd_mem)):1'b0;
 	//不前�?
 	assign rs2_forward[0] = ~rs2_forward[2] & ~rs2_forward[1];
 	

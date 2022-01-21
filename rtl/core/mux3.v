@@ -7,14 +7,13 @@ module mux3 #(
 	input [WIDTH-1:0]num0,
 	input [WIDTH-1:0]num1,
 	input [WIDTH-1:0]num2,
-	input [1:0]switch,
+	input [2:0]switch,
 	output [WIDTH-1:0]muxout
 );
-
-
-	assign muxout = (switch == 2'b00)?num0:
-		(switch == 2'b01)?num1:
-		(switch == 2'b10)?num2:
+		
+	assign muxout = (switch == 3'b001)?num0:
+		(switch == 3'b010)?num1:
+		(switch == 3'b100)?num2:
 		0;
-
+		
 endmodule

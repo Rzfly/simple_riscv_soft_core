@@ -25,6 +25,8 @@ module id_ex(
     input [`DATA_WIDTH - 1:0]pc_i,
     output reg [`DATA_WIDTH - 1:0]pc_o,
     output reg [`RD_WIDTH - 1:0] rd_ex,
+    output reg [`RS2_WIDTH - 1:0] rs2_ex,
+    output reg [`RS1_WIDTH - 1:0] rs1_ex,
     input [2: 0]ins_func3_i,
     output reg [2: 0]ins_func3_o
 );
@@ -44,8 +46,12 @@ module id_ex(
             branch_ex <= 0;
             alu_control_o <= 0;
             ins_func3_o <= 0;
+            rs1_ex <= 0;
+            rs2_ex <= 0;
 	   end
 	   else begin
+            rs1_ex <= rs1_id;
+            rs2_ex <= rs2_id;
             rd2_data_o <= rd2_data_i;
             rd1_data_o <= rd1_data_i;
             imm_o <= imm_i;

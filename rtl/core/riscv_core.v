@@ -56,6 +56,7 @@ module riscv_core(
     wire auipc_id;
     wire jalr_id;
     wire flush_id;
+    wire csr_type_id;
     wire [7 :0]control_flow_id;
     assign control_flow_id = {jalr_id,auipc_id,branch_id,ALU_src_id,read_mem_id,write_mem_id,mem2reg_id,write_reg_id};
     
@@ -89,6 +90,8 @@ module riscv_core(
     
     wire [`DATA_WIDTH - 1:0] rs2_data_ex;
     wire [`DATA_WIDTH - 1:0] rs1_data_ex;
+    wire [`DATA_WIDTH - 1:0] rs2_data_forward;
+    wire [`DATA_WIDTH - 1:0] rs1_data_forward;
     wire [`RS2_WIDTH - 1:0] rs2_ex;
     wire [`RS2_WIDTH - 1:0] rs1_ex;
     wire [`RD_WIDTH - 1:0] rd_ex;
@@ -104,7 +107,7 @@ module riscv_core(
     wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;  
     wire [`DATA_WIDTH - 1:0] alu_output_ex;
     wire alu_zero;
-    wire stall_pc;
+    wire stall_pipe;
     wire branch_res;
     wire jal_ex;
 
@@ -138,7 +141,7 @@ module riscv_core(
         .rst_n(rst_n),
         .branch_addr(pc_branch_addr_ex),
         .jump( branch_res),
-        .hold(1'b0),
+        .hold(stall_pipe),
         .pc_out(pc_if)
     );
 
@@ -162,7 +165,7 @@ module riscv_core(
         .pc_in(pc_if),
         //for auipc
         .pc_out(pc_id),
-         //not implemented yet
+        .hold(stall_pipe),
         .flush(flush_if)
     );
     // pure logic 
@@ -180,6 +183,7 @@ module riscv_core(
         .branch(branch_id),
         .auipc(auipc_id),
         .jalr(jalr_id),
+        .csr_type(csr_type_id),
         .ins_opcode(ins_opcode_id),
         .ins_func7(ins_func7_id),
         // ins_func6 unused, to be used in the future
@@ -201,6 +205,23 @@ module riscv_core(
         .alu_mask(rs2_mask)
     );
     
+    wire [`CsrMemAddrWIDTH - 1:0]csr_addr_id;
+    wire [`DATA_WIDTH - 1:0]csr_read_data;
+    wire [`DATA_WIDTH - 1:0]csr_write_data_id;
+    wire [`DATA_WIDTH - 1:0]csr_we_id;
+//    wire [`DATA_WIDTH - 1:0]csr_read_data;
+    
+    csr_control csr_control_inst(
+        .csr_type(csr_type_id),
+        .fun3(ins_func3_id),
+        .csr_addr_i(imm_short),
+        .wdata_imm(imm_long),
+        .wdata_rs(rs1_data_id),
+        .rdata_i(csr_read_data),
+        .we(csr_we_id),
+        .csr_addr_o(csr_addr_id),
+        .wdata_o(csr_write_data_id)
+    );
     //clock for WB.
     //pure logic for id
     regfile regfile_inst(
@@ -264,9 +285,11 @@ module riscv_core(
         .pc_i(pc_id),
         .pc_o(pc_ex),
         .rd_ex(rd_ex),
+        .rs2_ex(rs2_ex),
+        .rs1_ex(rs1_ex),
         .ins_func3_i(ins_func3_id),
         .ins_func3_o(ins_func3_ex),
-        .flush(flush_id)
+        .flush(flush_id|stall_pipe)
     );
     
 
@@ -292,14 +315,41 @@ module riscv_core(
         .rs2_forward(rs2_forward_mux)
     );
     
+    //when stall
+    //pc hold,id hold,ex becomes nop intead of other instuctions
+    hazard_detection hazard_detection_unit(
+        .read_mem_ex(control_flow_ex[3]),
+        .rd_ex(rd_ex),
+        .rs1_id(rs1_id),
+        .rs2_id(rs2_id),
+        .stall(stall_pipe)
+    );
+    
+    mux3 rs1_forward_mux3_inst(
+        .num0(rs1_data_ex),
+        .num1(ram_address_mem),
+        //mem2reg
+        .num2(wb_data_wb),
+        .switch(rs1_forward_mux),
+        .muxout(rs1_data_forward)
+    );
+    mux3 rs2_forward_mux3_inst(
+        .num0(rs2_data_ex),
+        .num1(ram_address_mem),
+        //mem2reg
+        .num2(wb_data_wb),
+        .switch(rs2_forward_mux),
+        .muxout(rs2_data_forward)
+    );
+    
     //pure logic
     //注意 auipc复用了alu而不是这个加法器
-    assign branch_adder_in1 = (jalr_ex)? rs1_data_ex : pc_ex;
+    assign branch_adder_in1 = (jalr_ex)? rs1_data_forward : pc_ex;
     assign branch_adder_in2 = imm_ex;
     
     assign pc_branch_addr_ex = branch_adder_in1 +  branch_adder_in2;
     //no fowarding unit
-    assign alu_input_num1 =(auipc_ex)? pc_ex : rs1_data_ex;
+    assign alu_input_num1 =(auipc_ex)? pc_ex : rs1_data_forward;
     assign jal_ex = branch_ex & auipc_ex;
     mux2num  mux2_alu_imm_switch(
         .num0(imm_ex),
@@ -309,7 +359,7 @@ module riscv_core(
      );
     
     mux2num  mux2_rs2_switch(
-        .num0(rs2_data_ex),
+        .num0(rs2_data_forward),
         .num1(alu_input_imm_branch),
         .switch(ALU_src_ex),
         .muxout(alu_input_num2)
@@ -329,7 +379,7 @@ module riscv_core(
         .rst_n(rst_n),
         .alu_res_i(alu_output_ex),
         //写存储用的是regfile的值而不是立即数
-        .reg_data_i(rs2_data_ex),
+        .reg_data_i(rs2_data_forward),
         .mem_address_o(ram_address_mem),
         .mem_write_data_o(ram_wdata_mem),
         .control_flow_i(control_flow_ex),
@@ -396,4 +446,67 @@ module riscv_core(
         .muxout(wb_data_wb)
      );
 
+    // to clint
+    wire [`DATA_WIDTH - 1:0] csr2clint_data;   // clint模块读寄存器数据
+    wire [`DATA_WIDTH - 1:0] clint_csr_mtvec;   // mtvec
+    wire [`DATA_WIDTH - 1:0] clint_csr_mepc;    // mepc
+    wire [`DATA_WIDTH - 1:0] clint_csr_mstatus; // mstatus
+    wire global_int_enable;
+    wire clint_hold_flag;
+    wire clint2csr_we;
+    wire clint2csr_waddr;
+    wire clint2csr_raddr;
+    wire clint2csr_wdata;
+    wire [`BUS_WIDTH - 1:0] clint_int_pc; // mstatus
+    wire clint_int_assert; // mstatus
+    
+    clint clint_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        //外部中断输入 来自core
+        .int_flag_i(1'b0),
+        .inst_i(instruction_id),          // 指令内容
+        .inst_addr_i(pc_id),    // 指令地址
+        //兼顾了jal指令
+        .jump_flag_i(1'b0),
+        .jump_addr_i(32'd0),
+        .data_i(csr2clint_data),      
+        .csr_mtvec(clint_csr_mtvec), 
+        .csr_mepc(clint_csr_mepc),           
+        .csr_mstatus(clint_csr_mstatus),         // mstatus寄存器
+        .global_int_en_i(global_int_enable),              // 全局中断使能标志
+        .hold_flag_o(clint_hold_flag),                 // 流水线暂停标志
+        .we_o(clint2csr_we),        
+        .waddr_o(clint2csr_waddr),         // 写CSR寄存器地址
+        .raddr_o(clint2csr_raddr),         // 读CSR寄存器地址
+        .data_o(clint2csr_wdata),         // 写CSR寄存器数据
+        .int_addr_o(clint_int_pc),     // 中断入口地址
+        .int_assert_o(clint_int_assert)                     // 中断标志
+    );
+    
+    csr_reg csr_reg_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+
+         // to ex
+        .we_i(csr_we_id),                      // ex模块写寄存器标志
+        .raddr_i(csr_addr_id),        // ex模块读寄存器地址
+        .waddr_i(csr_addr_id),                   // ex模块写寄存器地址
+        .data_i(csr_write_data_id),                    // ex模块写寄存器数据
+        .data_o(csr_read_data),                     // ex模块读寄存器数据
+
+        // from clint
+        .clint_we_i(clint2csr_we),                  // clint模块写寄存器标志
+        .clint_raddr_i(clint2csr_waddr),         // clint模块读寄存器地址
+        .clint_waddr_i(clint2csr_raddr),         // clint模块写寄存器地址
+        .clint_data_i(clint_int_pc),          // clint模块写寄存器数据
+
+        .global_int_en_o(global_int_enable),            // 全局中断使能标志
+    
+        .clint_data_o(csr2clint_data),       // clint模块读寄存器数据
+        .clint_csr_mtvec(clint_csr_mtvec),   // mtvec
+        .clint_csr_mepc(clint_csr_mepc),    // mepc
+        .clint_csr_mstatus(clint_csr_mstatus) // mstatus
+    );
+    
 endmodule
