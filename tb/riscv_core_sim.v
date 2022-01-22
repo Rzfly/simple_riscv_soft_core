@@ -11,9 +11,9 @@ module riscv_core_sim();
     
     always #10 clk = ~clk;     // 50MHz
 
-    wire [`RegBus - 1: 0] x3;
-    wire [`RegBus - 1: 0] x26;
-    wire [`RegBus - 1: 0] x27;
+    wire [`DATA_WIDTH - 1: 0] x3;
+    wire [`DATA_WIDTH - 1: 0] x26;
+    wire [`DATA_WIDTH - 1: 0] x27;
     
     assign x3 = soc_top_inst.riscv_core_inst.regfile_inst.rf[3];
     assign x26 = soc_top_inst.riscv_core_inst.regfile_inst.rf[26];
@@ -71,8 +71,8 @@ module riscv_core_sim();
     // read mem data
     initial begin
         #20
-//        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.rom_inst._rom);
-        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.rom_inst._rom);
+        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.rom_inst._rom);
+//        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.rom_inst._rom);
     end
 
     // generate wave file, used by gtkwave

@@ -93,6 +93,7 @@ module soc_top(
     riscv_core  riscv_core_inst(
         .clk(clk),
         .rst_n(rst_n),
+        .external_int_flag(1'b0),
         .rom_address(rom_address),
         .rom_rdata(rom_rdata),
         .ram_address(ram_address),

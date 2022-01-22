@@ -78,7 +78,7 @@ module clint(
             //暂时不支持ecall ebreak
             if (inst_i == `INST_ECALL || inst_i == `INST_EBREAK) begin
                 // 如果执行阶段的指令为除法指令，则先不处理同步中断，等除法指令执行完再处理
-                int_state = S_INT_IDLE;
+                int_state = S_INT_SYNC_ASSERT;
             end else if (int_flag_i != `INT_NONE && global_int_en_i == `True) begin
                 int_state = S_INT_ASYNC_ASSERT;
             end else if (inst_i == `INST_MRET) begin

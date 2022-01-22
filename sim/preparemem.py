@@ -44,6 +44,7 @@ def decode_type(bits):
     rs1 = bits[12:17];
     rs2 = bits[7:12];
     func7 = bits[0:7];
+    imm12 = bits[0:12];
     
     if(opcode == R_TYPE):
         code = "R_TYPE"
@@ -150,10 +151,26 @@ def decode_type(bits):
         ins = "AUIPC"
     else:
         code = "UNDEFINED"
-        
-    code = code + "  " + bits + "  " + ins + "  rs2: " + rs2 + "  rs1: " + rs1 + "  rd: " + rd + "  func3: " + func3 + "\n"
+    
+    if (code == "I_TYPE_ALUI"):
+        imm = count_imm(imm12);
+        code = code + "  " + bits + "  " + ins + "  imm: " + str(imm) + "  rs1: " + rs1 + "  rd: " + rd + "  func3: " + func3 + "\n"
+    else
+        code = code + "  " + bits + "  " + ins + "  rs2: " + rs2 + "  rs1: " + rs1 + "  rd: " + rd + "  func3: " + func3 + "\n"
     
     return code
+
+def count_imm(bits):
+    
+    print(len(bits));
+    count = 0;
+    for i in range(bits):
+        if(bits[i] == '0')
+            count = count*2
+        else
+            count = count*2 + 1
+    return count
+
 
 def hex2bin(hexin):
   

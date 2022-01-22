@@ -5,18 +5,22 @@ module id_ex(
     input clk,
     input rst_n,
     input flush,
+    input csr_type_id,
 	input [`DATA_WIDTH - 1:0]rd2_data_i,
 	input [`DATA_WIDTH - 1:0]rd1_data_i,
     output reg [`DATA_WIDTH - 1:0]rd2_data_o,
     output reg [`DATA_WIDTH - 1:0]rd1_data_o,
     input [`DATA_WIDTH - 1:0] imm_i,
     output reg [`DATA_WIDTH - 1:0] imm_o,
+    input [`DATA_WIDTH - 1:0]instruction_i,
+    output reg [`DATA_WIDTH - 1:0]instruction_o,
     input [`ALU_CONTROL_CODE_WIDTH + 4 :0]control_flow_i,
     input [`RS2_WIDTH - 1:0] rs2_id,
     input [`RS1_WIDTH - 1:0] rs1_id,
     input [`RD_WIDTH - 1:0] rd_id,
     input [`ALU_OP_WIDTH - 1:0]alu_control_i,
     output reg [`ALU_OP_WIDTH - 1:0]alu_control_o,
+    output reg csr_type_ex,
     output reg jalr_ex,
     output reg auipc_ex,
     output reg branch_ex,
@@ -48,6 +52,7 @@ module id_ex(
             ins_func3_o <= 0;
             rs1_ex <= 0;
             rs2_ex <= 0;
+            instruction_o <= 0;
 	   end
 	   else begin
             rs1_ex <= rs1_id;
@@ -63,12 +68,15 @@ module id_ex(
             branch_ex <= control_flow_i[5];
             alu_control_o <= alu_control_i;
             ins_func3_o <= ins_func3_i;
-            if(control_flow_i[5] | control_flow_i[6])begin
-                pc_o <= pc_i;
-            end
-            else begin
-                pc_o <= 0;
-            end
+            csr_type_ex <= csr_type_id;
+            pc_o <= pc_i;
+            instruction_o <= instruction_i;
+//            if(control_flow_i[5] | control_flow_i[6])begin
+//                pc_o <= pc_i;
+//            end
+//            else begin
+//                pc_o <= 0;
+//            end
 	   end
 	end
 
