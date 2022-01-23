@@ -43,6 +43,8 @@ module riscv_core_sim();
             $display("~~~~~~~~~ #       #    #  #    #  #    #~~~~~~~~~");
             $display("~~~~~~~~~ #       #    #   ####    #### ~~~~~~~~~");
             $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            for (r = 0; r < 32; r = r + 1)
+                $display("x%2d = 0x%x", r, soc_top_inst.riscv_core_inst.regfile_inst.rf[r]);
         end else begin
             $display("~~~~~~~~~~~~~~~~~~~ TEST_FAIL ~~~~~~~~~~~~~~~~~~~~");
             $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");

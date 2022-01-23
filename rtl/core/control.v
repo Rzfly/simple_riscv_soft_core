@@ -31,6 +31,7 @@ module control(
 	output reg [`DATA_WIDTH - 1:0]imm_long
 );
 
+
     assign ins_opcode = instruction[`OP_WIDTH - 1:0];
     assign ins_func7 = instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC7_WIDTH];
     assign ins_func6 = instruction[`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC6_WIDTH];
@@ -138,17 +139,16 @@ module control(
                 write_mem <= 1'b0;
                 //����ʹ��alu����ƫ�Ƶ�ַ
                 ALU_src  <= 1'b0;
-                imm_src  <= 1'b1;
+                imm_src  <= 1'b0;
                 imm_shift  <= 1'b1;
                 branch <= 1'b1;
                 auipc  <= 1'b0;
                 jalr  <= 1'b0;
                 csr_type <= 1'b0;
                 ALU_control <= `ALU_CONTROL_SB_TYPE;
-                imm_short <= `IMM_WIDTH'd0;
-                // 20'd0 imm12 imm11 imm[10:5] imm[4:1]
+                imm_short <= {instruction[`DATA_WIDTH - 1],instruction[`OP_WIDTH],instruction[`DATA_WIDTH - 2:`DATA_WIDTH - 7],instruction[`OP_WIDTH + 4:`OP_WIDTH + 1]};
                 //add pc. not shifted
-                imm_long <= { 20'd0, instruction[`DATA_WIDTH - 1],instruction[`OP_WIDTH],instruction[`DATA_WIDTH - 2:`DATA_WIDTH - 7],instruction[`OP_WIDTH + 4:`OP_WIDTH + 1]};
+                imm_long <= 0;
            end
            //lui
            `U_TYPE:begin 
@@ -156,13 +156,15 @@ module control(
                 mem2reg <= 1'b0;
                 read_mem <= 1'b0;
                 write_mem <= 1'b0;
-                //not used or add imm by zero
+                //add imm by zero
                 ALU_src  <= 1'b1;     
+                //long imm
                 imm_src  <= 1'b1;
                 imm_shift  <= 1'b0;
                 branch <= 1'b0;
                 auipc  <= 1'b0;
-                jalr  <= 1'b0;
+                //for encoding
+                jalr  <= 1'b1;
                 csr_type <= 1'b0;
                 ALU_control <= `ALU_CONTROL_U_TYPE;
                 imm_short <= `IMM_WIDTH'd0;

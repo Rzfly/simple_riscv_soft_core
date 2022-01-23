@@ -14,20 +14,25 @@ module regfile(
 
 	reg [`DATA_WIDTH - 1:0] rf[31:0];
     integer i;
+//    //保证了先写后读
+//	always @(negedge clk) begin
+//        if(~rst_n)begin
+//            for(i = 0 ; i < 32 ; i = i + 1 )begin
+//			     rf[i] <= 0;
+//            end 
+//        end
+//		else if(we) begin
+//			 rf[wa] <= wd;
+//		end
+//	end
     //保证了先写后读
 	always @(negedge clk) begin
-        if(~rst_n)begin
-            for(i = 0 ; i < 32 ; i = i + 1 )begin
-			     rf[i] <= 0;
-            end 
-        end
-		else if(we) begin
+        if((we == 1'b1) &&  (wa != 5'd0)) begin
 			 rf[wa] <= wd;
 		end
 	end
-
 	//by default, x0 reg is set to be zero.
 	assign rd1_data = (rs1 != 0) ? rf[rs1] : 0;
-	assign rd2_data = (rs1 != 0) ? rf[rs2] : 0;
+	assign rd2_data = (rs2 != 0) ? rf[rs2] : 0;
 endmodule
 	

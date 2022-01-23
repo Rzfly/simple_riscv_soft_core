@@ -64,7 +64,7 @@ module sirv_sim_ram
         if(~rst_n)begin
             addr_r <= 0;
         end
-        else if (ren) begin
+        else if (ren)begin
             addr_r <= addr;
         end
     end

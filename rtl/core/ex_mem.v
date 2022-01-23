@@ -6,9 +6,9 @@ module ex_mem(
     input clk,
     input rst_n,
     //as address
-    input [`DATA_WIDTH - 1:0]alu_res_i,
+    input [`DATA_WIDTH - 1:0]mem_address_i,
     //as wdata
-    input [`DATA_WIDTH - 1:0]reg_data_i,
+    input [`DATA_WIDTH - 1:0]mem_write_data_1,
     //note that width of instuction and data is not sure to be the same
     output [`BUS_WIDTH - 1:0]mem_address_o,
     output [`DATA_WIDTH - 1:0]mem_write_data_o,
@@ -19,7 +19,8 @@ module ex_mem(
     input [`RD_WIDTH - 1:0]rd_ex,
     output [`RD_WIDTH - 1:0]rd_mem,
     input [2: 0]ins_func3_i,
-    output reg [2: 0]ins_func3_o
+    output reg [2: 0]ins_func3_o,
+    input flush
     );
     
     reg [`DATA_WIDTH - 1:0]reg_data;
@@ -27,7 +28,7 @@ module ex_mem(
     reg [3:0]control_flow;
     reg [`RD_WIDTH - 1:0]rd;
     always@(posedge clk)begin
-        if(~rst_n)begin
+        if(flush | ~rst_n)begin
             reg_data <= 0;
             mem_address <= 0;
             control_flow <= 0;
@@ -35,8 +36,8 @@ module ex_mem(
             ins_func3_o <= 0;
         end
         else begin
-            reg_data <= reg_data_i;
-            mem_address <= alu_res_i;
+            reg_data <= mem_write_data_1;
+            mem_address <= mem_address_i;
             control_flow <= control_flow_i;
             rd <= rd_ex;
             ins_func3_o <= ins_func3_i;

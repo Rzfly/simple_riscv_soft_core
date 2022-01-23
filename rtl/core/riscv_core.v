@@ -44,6 +44,8 @@ module riscv_core(
     //instruction decode signals
     wire [`BUS_WIDTH - 1:0]pc_id;
     wire [`DATA_WIDTH - 1:0]instruction_id;
+    wire [`DATA_WIDTH - 1:0]rs2_data_reg;
+    wire [`DATA_WIDTH - 1:0]rs1_data_reg;
     wire [`DATA_WIDTH - 1:0]rs2_data_id;
     wire [`DATA_WIDTH - 1:0]rs1_data_id;
     wire branch_id;
@@ -104,7 +106,7 @@ module riscv_core(
     wire [2:0]ins_func3_ex;
     wire [`DATA_WIDTH - 1:0] alu_input_num2;
     wire [`DATA_WIDTH - 1:0] alu_input_num1;
-    wire [`DATA_WIDTH - 1:0] alu_input_imm_branch;
+    wire [`DATA_WIDTH - 1:0] alu_input_imm_switch;
     wire [`DATA_WIDTH - 1:0] branch_adder_in1;
     wire [`DATA_WIDTH - 1:0] branch_adder_in2;
     wire [`DATA_WIDTH - 1:0] instruction_ex;
@@ -118,7 +120,8 @@ module riscv_core(
     wire stall_pipe;
     wire branch_res;
     wire jal_ex;
-    // to clint
+    wire lui_type_ex;
+    assign lui_type_ex = jalr_ex & (~ branch_ex );
     
     
     wire [`DATA_WIDTH - 1:0] csr2clint_data;   // clint模块读寄存器数据
@@ -143,10 +146,7 @@ module riscv_core(
     wire [`RD_WIDTH - 1:0] rd_mem;
     wire [`DATA_WIDTH - 1 :0]ram_rdata_mem;
     wire [`DATA_WIDTH - 1 :0]ram_address_mem;
-    assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
-    assign ram_rdata_mem = ram_rdata;
-    assign ram_wdata = {`DATA_WIDTH{write_mem_mem}}| ram_wdata_mem;
-   
+
     //write back signals
     wire [`RD_WIDTH - 1:0]rd_wb;
     wire [`DATA_WIDTH - 1:0]wb_data_wb;
@@ -241,8 +241,8 @@ module riscv_core(
         .we(write_reg_wb),
         .rs2(rs2_id),
         .rs1(rs1_id),
-        .rd2_data(rs2_data_id),
-        .rd1_data(rs1_data_id),
+        .rd2_data(rs2_data_reg),
+        .rd1_data(rs1_data_reg),
         .wd(wb_data_wb),
         .wa(rd_wb)
     );
@@ -270,12 +270,18 @@ module riscv_core(
      .switch(imm_shift_id),
      .muxout(imm_id)
      );
-     
+                
+    //正好都有延迟了
+//    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
+//    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
+    assign rs1_data_id = rs1_data_reg;
+    assign rs2_data_id = rs2_data_reg &  rs2_mask;
+    
     //regs
     id_ex id_ex_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .rd2_data_i(rs2_data_id &  rs2_mask),
+        .rd2_data_i(rs2_data_id),
         .rd1_data_i(rs1_data_id),
         .rd2_data_o(rs2_data_ex),
         .rd1_data_o(rs1_data_ex),
@@ -362,18 +368,20 @@ module riscv_core(
     
     assign pc_branch_addr_ex = branch_adder_in1 +  branch_adder_in2;
     //no fowarding unit
+    
     assign alu_input_num1 =(auipc_ex)? pc_ex : rs1_data_forward;
     assign jal_ex = branch_ex & auipc_ex;
+    
     mux2num  mux2_alu_imm_switch(
         .num0(imm_ex),
         .num1(32'd4),
         .switch(jal_ex),
-        .muxout(alu_input_imm_branch)
+        .muxout(alu_input_imm_switch)
      );
     
     mux2num  mux2_rs2_switch(
         .num0(rs2_data_forward),
-        .num1(alu_input_imm_branch),
+        .num1(alu_input_imm_switch),
         .switch(ALU_src_ex),
         .muxout(alu_input_num2)
      );
@@ -387,7 +395,8 @@ module riscv_core(
     );
 
     wire [`CsrMemAddrWIDTH - 1:0]csr_addr_ex;
-    wire [`DATA_WIDTH - 1:0]csr_read_data;
+//    wire [`DATA_WIDTH - 1:0]csr_read_data;
+    wire [`DATA_WIDTH - 1:0]csr_read_data_ex;
     wire [`DATA_WIDTH - 1:0]csr_write_data_ex;
     wire [`DATA_WIDTH - 1:0]csr_we_ex;
 //    wire [`DATA_WIDTH - 1:0]csr_read_data;
@@ -398,7 +407,7 @@ module riscv_core(
         .csr_addr_i(pc_ex[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH]),
         .wdata_imm(imm_ex),
         .wdata_rs(rs1_data_forward),
-        .rdata_i(csr_read_data),
+        .rdata_i(csr_read_data_ex),
         .we(csr_we_ex),
         .csr_addr_o(csr_addr_ex),
         .wdata_o(csr_write_data_ex)
@@ -433,13 +442,12 @@ module riscv_core(
     csr_reg csr_reg_inst(
         .clk(clk),
         .rst_n(rst_n),
-
          // to ex
         .we_i(csr_we_ex),                      // ex模块写寄存器标志
         .raddr_i(csr_addr_ex),        // ex模块读寄存器地址
         .waddr_i(csr_addr_ex),                   // ex模块写寄存器地址
         .data_i(csr_write_data_ex),                    // ex模块写寄存器数据
-        .data_o(csr_read_data),                     // ex模块读寄存器数据
+        .data_o(csr_read_data_ex),                     // ex模块读寄存器数据
 
         // from clint
         .clint_we_i(clint2csr_we),                  // clint模块写寄存器标志
@@ -455,13 +463,28 @@ module riscv_core(
         .clint_csr_mstatus(clint_csr_mstatus) // mstatus
     );
     
+    wire [`BUS_WIDTH - 1 :0]mem_address_ex;
+    wire [2:0]mem_address_mux_ex;
+    assign mem_address_mux_ex={ csr_type_ex,lui_type_ex,~(lui_type_ex | csr_type_ex)};
+//    assign mem_address_ex = (lui_type_ex)?imm_ex:alu_output_ex;
+//    // num1  num2 同时有效时，优先 num1
+    mux3 #(.WIDTH(`DATA_WIDTH))
+    mem_address_mux(
+        .num0(alu_output_ex),
+        .num1(imm_ex),
+        //mem2reg
+        .num2(csr_read_data_ex),
+        .switch(mem_address_mux_ex),
+        .muxout(mem_address_ex)
+    );
+    
     //regs
     ex_mem ex_mem_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .alu_res_i(alu_output_ex),
+        .mem_address_i(mem_address_ex),
         //写存储用的是regfile的值而不是立即数
-        .reg_data_i(rs2_data_forward),
+        .mem_write_data_1(rs2_data_forward),
         .mem_address_o(ram_address_mem),
         .mem_write_data_o(ram_wdata_mem),
         .control_flow_i(control_flow_ex),
@@ -476,7 +499,10 @@ module riscv_core(
     
     //pure logic
     assign ram_we = write_mem_mem;
-     
+    assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
+    assign ram_wdata = {`DATA_WIDTH{write_mem_mem}}& ram_wdata_mem;
+    assign ram_rdata_mem = ram_rdata;
+   
     //regs       
     mem_wb mem_wb_inst(
         .clk(clk),

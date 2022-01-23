@@ -34,6 +34,7 @@ module alucontrol(
     wire ins_jtype;
     wire ins_ltype;
     
+//    assign ins_csrtype = (ins_optype == `ALU_CONTROL_CSR_TYPE)?1'b1:1'b0;
     assign ins_rtype = (ins_optype == `ALU_CONTROL_R_TYPE)?1'b1:1'b0;
     assign ins_itype = (ins_optype == `ALU_CONTROL_I_TYPE_ALUI)?1'b1:1'b0;
     //load
@@ -65,7 +66,7 @@ module alucontrol(
     
     //branch 地址已经在id阶段被计�?
     assign alu_add_req = (ins_rtype & (ins_fun3 == 3'b000) & ~ins_fun7 [5])|(ins_itype & (ins_fun3 == 3'b000))
-                        |(ins_stype)|ins_ltype|ins_jtype|ins_ujtype|ins_auipctype;
+                        |(ins_stype)|ins_ltype|ins_jtype|ins_ujtype|ins_auipctype|ins_utype;
     //data-type
     assign alu_sub_req = (ins_rtype & (ins_fun3 == 3'b000) & ins_fun7 [5])
                         |(ins_sbtype  & (ins_fun3 == 3'b000))
