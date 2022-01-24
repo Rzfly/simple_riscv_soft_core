@@ -19,7 +19,9 @@ module alu(
     wire op_and = operation[`OP_DECINFO_AND];
     wire op_slt = operation[`OP_DECINFO_SLT];
     wire op_sltu = operation[`OP_DECINFO_SLTU];
-    wire adder_add = op_add; 
+    wire adder_add; 
+    wire adder_addsub;
+    assign adder_add = op_add;
     wire adder_sub =                    (
                    // The original sub instruction
                (op_sub) 
@@ -30,7 +32,7 @@ module alu(
     wire op_shift;
     wire op_addsub;
     assign op_shift = op_sra | op_sll | op_srl;   
-    assign op_addsub = adder_add | adder_sub;
+    assign op_addsub = op_add | op_sub;
           
     wire [`ALU_ADDER_WIDTH - 1:0]adder_in1;
     wire [`ALU_ADDER_WIDTH - 1:0]adder_in2;
@@ -90,10 +92,9 @@ module alu(
     ( {`DATA_WIDTH{op_slt}} & alu_slt_res )| 
     ( {`DATA_WIDTH{op_sltu}} & alu_sltu_res );
     
-    wire adder_addsub;
     assign adder_addsub = adder_add | adder_sub; 
-    assign adder_in1 = {`ALU_ADDER_WIDTH{op_addsub}} & (misc_adder_op1);
-    assign adder_in2 = {`ALU_ADDER_WIDTH{op_addsub}} & (adder_sub ? (~misc_adder_op2) : misc_adder_op2);
+    assign adder_in1 = {`ALU_ADDER_WIDTH{adder_addsub}} & (misc_adder_op1);
+    assign adder_in2 = {`ALU_ADDER_WIDTH{adder_addsub}} & (adder_sub ? (~misc_adder_op2) : misc_adder_op2);
     wire adder_cin;
     assign adder_cin = adder_addsub & adder_sub;
     assign adder_res = adder_in1 + adder_in2 + adder_cin;

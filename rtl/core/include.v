@@ -23,7 +23,8 @@
 `define RstEnable 0
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
-`define MEMORY_DEPTH 1024
+`define RAM_MASK_WIDTH 4
+`define MEMORY_DEPTH 2048
 `define MEMORY_WIDTH 10
 
 //p58 R-type

@@ -5,8 +5,8 @@ module alucontrol(
     input  [`ALU_CONTROL_CODE_WIDTH - 1 :0]ins_optype,
     input  [`FUNC3_WIDTH - 1: 0 ]ins_fun3,
     input  [`FUNC7_WIDTH - 1: 0 ]ins_fun7,
-    output [`ALU_OP_WIDTH - 1 : 0]alu_operation,
-    output reg [`DATA_WIDTH - 1 : 0]alu_mask
+    output [`ALU_OP_WIDTH - 1 : 0]alu_operation
+//    output reg [`DATA_WIDTH - 1 : 0]alu_mask
 );
 
     wire alu_add_req;
@@ -84,27 +84,6 @@ module alucontrol(
                         |(ins_sbtype  & (ins_fun3 == 3'b110))
                         |(ins_sbtype  & (ins_fun3 == 3'b111));
     
-    always@(*)begin
-        if(ins_stype)begin
-            case(ins_fun3)
-             3'b000:begin
-                alu_mask <= 32'h000000ff;
-             end
-             3'b001:begin
-                alu_mask <= 32'h0000ffff;             
-             end
-             3'b010:begin
-                alu_mask <= 32'hffffffff;    
-             end
-             default:begin
-                alu_mask <= 32'hffffffff;
-             end
-             endcase
-         end
-        else begin
-            alu_mask <= 32'hffffffff;
-        end
-    end
 //    assign alu_ldsd_add_req = ins_optype[`DEFINE_LOAD_OR_STORE]
     
 endmodule

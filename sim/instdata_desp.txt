@@ -141,34 +141,29 @@ ff318193
 passed
 
 
-addi x1,  x1, ff1
-addi x2,  x2, ff2
-nop
-nop
+addi x1,  x0, ff1
+addi x2,  x0, ff2
 blt  x1,x2, 200
 addi x3,  x3, ff3
 
 imm                  rs1   fun3    rd    op 
-111111110001 00001 000 00001 0010011
+111111110001 00000 000 00001 0010011
 imm                  rs1   fun3    rd    op 
-111111110010 00010 000 00010 0010011
+111111110010 00000 000 00010 0010011
 imm7	 rs2      rs1       fun3    imm5      op 
 0000110  00010  00001     100   01000  1100011
 imm                  rs1   fun3    rd    op 
 111111110011 00011 001 00011 0010011
 
-ff108093
-ff210113
-00000013
-00000013
+ff100093
+ff200113
 0c20c463
 ff318193
+应该跳转
 passed
 
-addi x1,  x1, ff1
-addi x2,  x2, ff2
-nop
-nop
+addi x1,  x0, ff1
+addi x2,  x0, ff2
 bge  x1,x2, 200
 addi x3,  x3, ff3
 
@@ -181,18 +176,15 @@ imm7	 rs2      rs1       fun3    imm5      op
 imm                  rs1   fun3    rd    op 
 111111110011 00011 001 00011 0010011
 
-ff108093
-ff210113
-00000013
-00000013
+ff100093
+ff200113
 0c20d463
 ff318193
+应该不跳转
 passed
 
-addi x1,  x1, ff1
-addi x2,  x2, ff2
-nop
-nop
+addi x1,  x0, ff1
+addi x2,  x0, ff2
 bltu x1,x2, 200
 addi x3,  x3, ff3
 
@@ -205,16 +197,15 @@ imm7	 rs2      rs1       fun3    imm5      op
 imm                  rs1   fun3    rd    op 
 111111110011 00011 001 00011 0010011
 
-ff108093
-ff210113
-00000013
-00000013
+ff100093
+ff200113
 0c20e463
 ff318193
+应该跳转
 passed
 
-addi x1,  x1, ff1
-addi x2,  x2, ff2
+addi x1,  x0, ff1
+addi x2,  x0, ff2
 bgeu x1,x2, 100
 addi x3,  x3, ff3
 
@@ -227,12 +218,11 @@ imm7	 rs2      rs1       fun3    imm5      op
 imm                  rs1   fun3    rd    op 
 111111110011 00011 001 00011 0010011
 
-ff108093
-ff210113
-00000013
-00000013
+ff100093
+ff200113
 0c20f463
 ff318193
+应该不跳转
 passed
 
 addi x1,  x1, ff1

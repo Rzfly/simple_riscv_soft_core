@@ -31,7 +31,8 @@ module ram #(
     input rst_n,
     input [`BUS_WIDTH - 1:0]addr,
     input [`DATA_WIDTH - 1:0]datai,
-    output [`DATA_WIDTH - 1:0]datao
+    output [`DATA_WIDTH - 1:0]datao,
+    input [`RAM_MASK_WIDTH - 1:0]wem
 );
 
 //    memory_ram memory_ram_inst(
@@ -60,7 +61,7 @@ module ram #(
   .we  (we  ),
   .addr(addr),
   .din (datai ),
-  .wem ({4{we}} ),
+  .wem (wem),
   .dout(datao)
   );
 endmodule

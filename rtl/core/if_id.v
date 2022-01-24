@@ -28,31 +28,33 @@ module if_id(
     input flush,
     input hold,
     input [`DATA_WIDTH - 1:0]instruction_i,
-    output reg [`DATA_WIDTH - 1:0]instruction_o,
+    output [`DATA_WIDTH - 1:0]instruction_o,
     input [`BUS_WIDTH - 1:0]pc_in,
     output reg [`BUS_WIDTH - 1:0]pc_out
     );
     
+    reg [`DATA_WIDTH - 1:0]instruction;
     always@(posedge clk)
     begin
         if (flush | ~rst_n )
         begin
-            instruction_o <= `DATA_WIDTH'd0;
+            instruction <= `DATA_WIDTH'd0;
             pc_out <= `BUS_WIDTH'd0;
         end
         else
         begin
             if(hold)begin
-                instruction_o <= instruction_o;
                 pc_out <= pc_out;
+                instruction <= instruction;
             end
             else begin
-                instruction_o <= instruction_i;
                 pc_out <= pc_in;
+                instruction <= instruction_i;
             end
         end
     end
 
+    assign instruction_o = (hold)? instruction:instruction_i;
 //    assign instruction_o = (flush | ~rst_n )? 0 : 
 //                            (hold) instruction_i;
         

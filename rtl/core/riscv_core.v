@@ -30,7 +30,8 @@ module riscv_core(
     input [`DATA_WIDTH - 1: 0]ram_rdata,
     output ram_we,
     output [`BUS_WIDTH - 1:0]ram_address,
-    output [`DATA_WIDTH - 1: 0]ram_wdata
+    output [`DATA_WIDTH - 1: 0]ram_wdata,
+    output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask
     );
     
     //instruction fetch signals
@@ -229,8 +230,8 @@ module riscv_core(
         .ins_optype(alu_optype_id),
         .ins_fun3(ins_func3_id),
         .ins_fun7(ins_func7_id),
-        .alu_operation(alu_control_i),
-        .alu_mask(rs2_mask)
+        .alu_operation(alu_control_i)
+//        .alu_mask(rs2_mask)
     );
     
     //clock for WB.
@@ -493,9 +494,33 @@ module riscv_core(
         .mem_read(read_mem_mem),
         .rd_ex(rd_ex),
         .rd_mem(rd_mem),
-        .ins_func3_i(ins_func3_mem),
-        .ins_func3_o(ins_func3_wb)
+        .ins_func3_i(ins_func3_ex),
+        .ins_func3_o(ins_func3_mem)
     );
+    
+    always@(*)begin
+        if(ram_we)begin
+            case(ins_func3_mem)
+            //SB
+             3'b000:begin
+               ram_wmask <= 4'b0001;
+             end
+            //SH
+             3'b001:begin
+               ram_wmask <= 4'b0011;         
+             end
+             3'b010:begin
+               ram_wmask <= 4'b1111;
+             end
+             default:begin
+               ram_wmask <= 4'b1111;
+             end
+             endcase
+         end
+        else begin
+               ram_wmask <= 4'b1111;
+        end
+    end
     
     //pure logic
     assign ram_we = write_mem_mem;
@@ -526,18 +551,23 @@ module riscv_core(
     //for load ins
     always@(*)begin
         case (ins_func3_wb)
+            //LB
             3'b000:begin
                 ram_rdata_wb_mask = {{24{ram_rdata_wb[7]}}, ram_rdata_wb[7:0]}; 
             end
+            //LH
             3'b001:begin
                 ram_rdata_wb_mask = {{16{ram_rdata_wb[15]}}, ram_rdata_wb[15:0]}; 
             end
+            //LW
             3'b010:begin
                 ram_rdata_wb_mask = ram_rdata_wb; 
             end
+            //LBU
             3'b100:begin
                 ram_rdata_wb_mask = { 24'b0, ram_rdata_wb[7:0]}; 
             end
+            //LHU
             3'b101:begin
                 ram_rdata_wb_mask = { 16'b0, ram_rdata_wb[7:0]};
             end
