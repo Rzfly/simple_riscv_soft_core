@@ -68,15 +68,43 @@ module sirv_duelport_ram
     end
     
 	//write logic
-    generate
+//    generate
+//      for (i = 0; i < MW; i = i+1) begin :mem
+//        if((8*i+8) > DW ) begin: last
+//          always @(posedge clk) begin
+//            if(~rst_n)begin
+//               mem_r[addr_a][DW-1:8*i] <= 0;
+//               mem_r[addr_b][DW-1:8*i] <= 0;
+//            end
+//            else if (wen_a[i]) begin
+//               mem_r[addr_a][DW-1:8*i] <= din_a[DW-1:8*i];
+//            end
+//            else if (wen_b[i]) begin
+//               mem_r[addr_b][DW-1:8*i] <= din_b[DW-1:8*i];
+//            end
+//          end
+//        end
+//        else begin: non_last
+//          always @(posedge clk) begin
+//            if(~rst_n)begin
+//               mem_r[addr_a][8*i+7:8*i] <= 0;
+//               mem_r[addr_b][8*i+7:8*i] <= 0;
+//            end
+//            else if (wen_a[i]) begin
+//               mem_r[addr_a][8*i+7:8*i] <= din_a[8*i+7:8*i];
+//            end
+//            else if (wen_b[i]) begin
+//               mem_r[addr_b][8*i+7:8*i] <= din_b[8*i+7:8*i];
+//            end
+//          end
+//        end
+//      end
+//    endgenerate
+        generate
       for (i = 0; i < MW; i = i+1) begin :mem
         if((8*i+8) > DW ) begin: last
           always @(posedge clk) begin
-            if(~rst_n)begin
-               mem_r[addr_a][DW-1:8*i] <= 0;
-               mem_r[addr_b][DW-1:8*i] <= 0;
-            end
-            else if (wen_a[i]) begin
+            if (wen_a[i]) begin
                mem_r[addr_a][DW-1:8*i] <= din_a[DW-1:8*i];
             end
             else if (wen_b[i]) begin
@@ -86,11 +114,7 @@ module sirv_duelport_ram
         end
         else begin: non_last
           always @(posedge clk) begin
-            if(~rst_n)begin
-               mem_r[addr_a][8*i+7:8*i] <= 0;
-               mem_r[addr_b][8*i+7:8*i] <= 0;
-            end
-            else if (wen_a[i]) begin
+            if (wen_a[i]) begin
                mem_r[addr_a][8*i+7:8*i] <= din_a[8*i+7:8*i];
             end
             else if (wen_b[i]) begin

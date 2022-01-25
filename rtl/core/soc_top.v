@@ -70,20 +70,24 @@ module soc_top(
     wire [`DATA_WIDTH-1:0]ram_dout_b;
     wire    ram_we_a;
     wire    ram_we_b;
+    wire    rom_req;
+    wire    ram_req;
     
     assign ram_we_a = 1'b0;
     assign ram_we_b = ram_we;
     assign ram_din_a = 32'd0;
     assign ram_din_b = ram_wdata;
-    assign ram_addr_a = rom_address;
-    assign ram_addr_b = ram_address;
+    assign ram_addr_a = {2'b00,rom_address[`BUS_WIDTH - 1:2]};
+    assign ram_addr_b = {2'b00,ram_address[`BUS_WIDTH - 1:2]};
     assign ram_we_a = 1'b0;
     assign ram_we_b = ram_we;
     assign ram_wem_a = 4'b0000;
     assign ram_wem_b = ram_wmask;
-    assign ram_dout_a = rom_rdata;
-    assign ram_dout_b = ram_rdata;
-    
+    assign rom_rdata = (rom_req)?ram_dout_a:`INST_NOP;
+    //要晚释放一个cycle
+    //assign ram_rdata = (ram_req)?ram_dout_b:32'd0;
+    assign ram_rdata = ram_dout_b;  
+      
 //    riscv_core  riscv_core_inst(
 //        .clk(clk),
 //        .rst_n(rst_n),
@@ -114,6 +118,7 @@ module soc_top(
 
 //        .int_i(int_flag)
 //    );
+    
         
     riscv_core  riscv_core_inst(
         .clk(clk),
@@ -125,6 +130,8 @@ module soc_top(
         .ram_rdata(ram_rdata),
         .ram_wdata(ram_wdata),
         .ram_wmask(ram_wmask),
+        .ram_req(ram_req),
+        .rom_req(rom_req),
         .ram_we(ram_we)
     );
     

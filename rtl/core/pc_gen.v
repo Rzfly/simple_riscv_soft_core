@@ -31,7 +31,8 @@ module pc_gen #(
     input jump,
     input hold,
 //    input [PC_WIDTH - 1:0]pc_reset_value,
-    output [`BUS_WIDTH - 1:0]pc_out
+    output [`BUS_WIDTH - 1:0]pc_out,
+    output reg rom_req
     );
 
     wire [`BUS_WIDTH - 1:0]pc_src;
@@ -44,4 +45,27 @@ module pc_gen #(
         .qout(pc_out) 
      );
 
+    always@(posedge clk)
+    begin
+        if (jump | ~rst_n )
+        begin
+            rom_req <= 0;
+        end
+        else
+        begin
+            rom_req <= 1;
+        end
+    end
+    
+//    always@(posedge clk)
+//    begin
+//        if ( ~rst_n )
+//        begin
+//            rom_req <= 0;
+//        end
+//        else
+//        begin
+//            rom_req <= 1;
+//        end
+//    end
 endmodule

@@ -28,19 +28,26 @@ module riscv_core(
     input [`DATA_WIDTH - 1: 0]rom_rdata,
     output [`BUS_WIDTH - 1:0] rom_address,
     input [`DATA_WIDTH - 1: 0]ram_rdata,
+    output ram_req,
+    output rom_req,
     output ram_we,
     output [`BUS_WIDTH - 1:0]ram_address,
     output [`DATA_WIDTH - 1: 0]ram_wdata,
     output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask
     );
     
+    
     //instruction fetch signals
     wire [`BUS_WIDTH - 1:0]pc_if;
+    wire [`BUS_WIDTH - 1:0]pc_if_id;
     wire [`DATA_WIDTH - 1:0]instruction_if;
     wire flush_if;
     wire pc_jump;
     wire pc_hold;
     wire [`BUS_WIDTH - 1:0]jump_addr;
+    wire read_rom_if;
+    assign ram_req = write_mem_mem | read_mem_mem;
+    assign rom_req = read_rom_if;
     
     //instruction decode signals
     wire [`BUS_WIDTH - 1:0]pc_id;
@@ -166,7 +173,8 @@ module riscv_core(
         .branch_addr(jump_addr),
         .jump(pc_jump),
         .hold(pc_hold),
-        .pc_out(pc_if)
+        .pc_out(pc_if),
+        .rom_req(read_rom_if)
     );
     assign pc_hold = stall_pipe;
     assign pc_jump = branch_res | clint_hold_flag;
@@ -179,8 +187,7 @@ module riscv_core(
 //        .branch_stall(stall_pc)
 //    );
 
-    assign rom_address = pc_if;
-    assign instruction_if = rom_rdata;
+//    assign instruction_if = rom_rdata;
     assign flush_if = branch_res | clint_hold_flag ;
     assign flush_id = branch_res | clint_hold_flag | stall_pipe;
     //¿˝Õ‚…–Œ¥ µœ÷s
@@ -189,14 +196,15 @@ module riscv_core(
     if_id if_id_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .instruction_i(instruction_if),
-        .instruction_o(instruction_id),
-        .pc_in(pc_if),
-        //for auipc
-        .pc_out(pc_id),
         .hold(stall_pipe),
-        .flush(flush_if)
+        .flush(flush_if),
+        .pc_if(pc_if),
+        .pc_id(pc_id),
+        .rom_rdata(rom_rdata),
+        .rom_address(rom_address),
+        .instruction_o(instruction_id)
     );
+    
     // pure logic 
     // for id
     control control_inst(
@@ -225,7 +233,7 @@ module riscv_core(
 	    .imm_long(imm_long)
     );
 
-    wire [`DATA_WIDTH - 1:0] rs2_mask;
+//    wire [`DATA_WIDTH - 1:0] rs2_mask;
     alucontrol alucontrol_inst(
         .ins_optype(alu_optype_id),
         .ins_fun3(ins_func3_id),
@@ -276,7 +284,7 @@ module riscv_core(
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
     assign rs1_data_id = rs1_data_reg;
-    assign rs2_data_id = rs2_data_reg &  rs2_mask;
+    assign rs2_data_id = rs2_data_reg;
     
     //regs
     id_ex id_ex_inst(

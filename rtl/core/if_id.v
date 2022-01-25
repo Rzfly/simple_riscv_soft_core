@@ -27,34 +27,32 @@ module if_id(
     input rst_n,
     input flush,
     input hold,
-    input [`DATA_WIDTH - 1:0]instruction_i,
+    input [`BUS_WIDTH - 1:0]pc_if,
+    output [`BUS_WIDTH - 1:0] rom_address,
+    input [`DATA_WIDTH - 1:0] rom_rdata,
     output [`DATA_WIDTH - 1:0]instruction_o,
-    input [`BUS_WIDTH - 1:0]pc_in,
-    output reg [`BUS_WIDTH - 1:0]pc_out
+    output reg [`BUS_WIDTH - 1:0]pc_id
     );
     
-    reg [`DATA_WIDTH - 1:0]instruction;
     always@(posedge clk)
     begin
-        if (flush | ~rst_n )
+        if ( ~rst_n )
         begin
-            instruction <= `DATA_WIDTH'd0;
-            pc_out <= `BUS_WIDTH'd0;
+            pc_id <= `BUS_WIDTH'd0;
         end
         else
         begin
             if(hold)begin
-                pc_out <= pc_out;
-                instruction <= instruction;
+                pc_id <= pc_id;
             end
             else begin
-                pc_out <= pc_in;
-                instruction <= instruction_i;
+                pc_id <= pc_if;
             end
         end
     end
 
-    assign instruction_o = (hold)? instruction:instruction_i;
+    assign rom_address   = (hold)?pc_id:pc_if;
+    assign instruction_o = (flush | (~rst_n))? `INST_NOP:rom_rdata;
 //    assign instruction_o = (flush | ~rst_n )? 0 : 
 //                            (hold) instruction_i;
         

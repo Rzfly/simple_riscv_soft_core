@@ -74,7 +74,7 @@ module riscv_core_sim();
     initial begin
         #20
         $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.sirv_duelport_ram_inst.mem_r);
-//        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.rom_inst._rom);
+//        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.sirv_duelport_ram_inst.mem_r);
     end
 
     // generate wave file, used by gtkwave
