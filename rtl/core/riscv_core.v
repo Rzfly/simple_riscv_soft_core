@@ -32,7 +32,7 @@ module riscv_core(
     output rom_req,
     output ram_we,
     output [`BUS_WIDTH - 1:0]ram_address,
-    output [`DATA_WIDTH - 1: 0]ram_wdata,
+    output reg [`DATA_WIDTH - 1: 0]ram_wdata,
     output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask
     );
     
@@ -505,35 +505,71 @@ module riscv_core(
         .ins_func3_i(ins_func3_ex),
         .ins_func3_o(ins_func3_mem)
     );
-    
+    wire [1:0]mem_raddr_index;
+    wire [1:0]mem_waddr_index;
+    assign mem_waddr_index = ram_address_mem[1:0];
+                                
     always@(*)begin
         if(ram_we)begin
             case(ins_func3_mem)
             //SB
              3'b000:begin
-               ram_wmask <= 4'b0001;
+                case(mem_waddr_index)
+                2'b00:begin
+                    ram_wmask <= 4'b0001;
+//                    ram_wdata = {{24{ram_wdata_mem[7]}},ram_wdata_mem[7:0]};
+                    ram_wdata = {24'b0 ,ram_wdata_mem[7:0]};
+                end
+                2'b01:begin
+                    ram_wmask <= 4'b0010;
+                    ram_wdata = {16'b0,ram_wdata_mem[7:0],8'b0};
+                end
+                2'b10:begin
+                    ram_wmask <= 4'b0100;
+                    ram_wdata = {8'b0,ram_wdata_mem[7:0],16'b0};
+                end
+                2'b11:begin
+                    ram_wmask <= 4'b1000;
+                    ram_wdata = {ram_wdata_mem[7:0],24'b0};
+                end
+                default:begin
+                    ram_wmask <= 4'b0000;
+                    ram_wdata <= 32'd0;
+                end
+               endcase
              end
             //SH
              3'b001:begin
-               ram_wmask <= 4'b0011;         
+                 case(mem_waddr_index)
+                    2'b00:begin
+                        ram_wmask <= 4'b0011;
+                        ram_wdata = {16'b0 ,ram_wdata_mem[15:0]};
+                    end
+                    default:begin
+                        ram_wmask <= 4'b1100;
+                        ram_wdata <= {ram_wdata_mem[15:0],16'b0};
+                    end
+                 endcase   
              end
              3'b010:begin
-               ram_wmask <= 4'b1111;
+                ram_wmask <= 4'b1111;
+                ram_wdata <= ram_wdata_mem;
              end
              default:begin
-               ram_wmask <= 4'b1111;
+                ram_wmask <= 4'b1111;
+                ram_wdata <= ram_wdata_mem;
              end
              endcase
          end
         else begin
-               ram_wmask <= 4'b1111;
+               ram_wmask <= 4'b0000;
+               ram_wdata <= 32'd0;
         end
     end
     
     //pure logic
     assign ram_we = write_mem_mem;
     assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
-    assign ram_wdata = {`DATA_WIDTH{write_mem_mem}}& ram_wdata_mem;
     assign ram_rdata_mem = ram_rdata;
    
     //regs       
@@ -557,15 +593,36 @@ module riscv_core(
     
     //pure logic
     //for load ins
+    assign mem_raddr_index = ram_address_wb[1:0];
     always@(*)begin
         case (ins_func3_wb)
             //LB
             3'b000:begin
-                ram_rdata_wb_mask = {{24{ram_rdata_wb[7]}}, ram_rdata_wb[7:0]}; 
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_wb_mask = {{24{ram_rdata_wb[7]}}, ram_rdata_wb[7:0]};
+                    end
+                    2'b01: begin
+                        ram_rdata_wb_mask = {{24{ram_rdata_wb[15]}}, ram_rdata_wb[15:8]};
+                    end
+                    2'b10: begin
+                        ram_rdata_wb_mask = {{24{ram_rdata_wb[23]}}, ram_rdata_wb[23:16]};
+                    end
+                    default: begin
+                        ram_rdata_wb_mask = {{24{ram_rdata_wb[31]}}, ram_rdata_wb[31:24]};
+                    end
+                endcase               
             end
             //LH
             3'b001:begin
-                ram_rdata_wb_mask = {{16{ram_rdata_wb[15]}}, ram_rdata_wb[15:0]}; 
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_wb_mask = {{16{ram_rdata_wb[15]}}, ram_rdata_wb[15:0]};
+                    end
+                    default: begin
+                        ram_rdata_wb_mask = {{16{ram_rdata_wb[31]}}, ram_rdata_wb[31:16]}; 
+                    end
+                endcase     
             end
             //LW
             3'b010:begin
@@ -573,11 +630,31 @@ module riscv_core(
             end
             //LBU
             3'b100:begin
-                ram_rdata_wb_mask = { 24'b0, ram_rdata_wb[7:0]}; 
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[7:0]};
+                    end
+                    2'b01: begin
+                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[15:8]};
+                    end
+                    2'b10: begin
+                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[23:16]};
+                    end
+                    default: begin
+                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[31:24]};
+                    end
+                endcase
             end
             //LHU
             3'b101:begin
-                ram_rdata_wb_mask = { 16'b0, ram_rdata_wb[7:0]};
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_wb_mask = {16'b0, ram_rdata_wb[15:0]};
+                    end
+                    default: begin
+                        ram_rdata_wb_mask = {16'b0, ram_rdata_wb[31:16]}; 
+                    end
+                endcase    
             end
             default:begin
                 ram_rdata_wb_mask = ram_rdata_wb;
@@ -585,6 +662,8 @@ module riscv_core(
         endcase
     end
     
+
+                                
     mux2num  mux2_wb_data_switch(
         .num0(ram_address_wb),
         .num1(ram_rdata_wb_mask),
