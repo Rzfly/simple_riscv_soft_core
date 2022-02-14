@@ -50,12 +50,12 @@ module sirv_sim_ram
     assign ren = cs & (~we);
     assign wen = ({MW{cs & we}} & wem);
     
-    integer j;
-    initial begin
-        for( j = 0; j < DP; j = j + 1)begin
-            mem_r[j] <= 0;  
-       end
-    end
+//    integer j;
+//    initial begin
+//        for( j = 0; j < DP; j = j + 1)begin
+//            mem_r[j] <= 32'hffffffff;  
+//       end
+//    end
 
     genvar i;
 

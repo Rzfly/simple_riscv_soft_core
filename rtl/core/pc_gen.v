@@ -22,44 +22,35 @@
 
 `include "include.v"
 
+//true pre_if
 module pc_gen #(
     parameter PC_WIDTH = 31
 )(
-    input clk,
-    input rst_n,
     input [`BUS_WIDTH - 1:0]branch_addr,
     input jump,
     input hold,
-//    input [PC_WIDTH - 1:0]pc_reset_value,
-    output [`BUS_WIDTH - 1:0]pc_out,
-    output reg rom_req
+    input mem_addr_ok,
+    //input mem_ok,
+    output rom_req,
+    input [`BUS_WIDTH - 1:0] pc_now,
+    output [`BUS_WIDTH - 1:0] next_pc,
+    //not used
+    input allow_in_if,
+    output ready_go_pre,
+    output valid_pre
     );
 
-    wire [`BUS_WIDTH - 1:0]pc_src;
-    assign pc_src = (hold)?pc_out:(jump)?branch_addr:(pc_out + 4);
+    wire hold_pipe;
+    assign hold_pipe = ~allow_in_if | hold;
+    assign next_pc = (hold_pipe)?pc_now:(jump)?branch_addr:(pc_now + 4);
+    assign ready_go_pre = rom_req & mem_addr_ok;
+    assign valid_pre = 1'b1;
+    assign rom_req = allow_in_if & (~hold);
     
-    dff_rst2zero #(.WIDTH(`BUS_WIDTH)) dff_rst2zero_inst(
-        .clk(clk),
-        .rst_n(rst_n),
-        .din(pc_src),
-        .qout(pc_out) 
-     );
-
-    always@(posedge clk)
-    begin
-        if (jump | ~rst_n )
-        begin
-            rom_req <= 0;
-        end
-        else
-        begin
-            rom_req <= 1;
-        end
-    end
     
 //    always@(posedge clk)
 //    begin
-//        if ( ~rst_n )
+//        if (jump | ~rst_n )
 //        begin
 //            rom_req <= 0;
 //        end
@@ -68,4 +59,5 @@ module pc_gen #(
 //            rom_req <= 1;
 //        end
 //    end
+    
 endmodule

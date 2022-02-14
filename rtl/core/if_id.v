@@ -28,32 +28,67 @@ module if_id(
     input flush,
     input hold,
     input [`BUS_WIDTH - 1:0]pc_if,
-    output [`BUS_WIDTH - 1:0] rom_address,
-    input [`DATA_WIDTH - 1:0] rom_rdata,
-    output [`DATA_WIDTH - 1:0]instruction_o,
-    output reg [`BUS_WIDTH - 1:0]pc_id
+    output [`BUS_WIDTH - 1:0]pc_id,
+    input [`DATA_WIDTH - 1:0]instruction_if,
+    output [`DATA_WIDTH - 1:0]instruction_id,
+    //to next pipe
+    input allow_in_ex,
+    //processing
+    output valid_id,
+    output ready_go_id,
+    //to pre pipe
+    output allow_in_id,
+    //processing
+    input valid_if,
+    input ready_go_if
     );
+    
+    reg [`BUS_WIDTH - 1:0]pc;
+    reg valid;
+    reg [`DATA_WIDTH - 1:0]instruction;
+    wire pipe_valid;
+    wire hold_pipe;
+    assign hold_pipe = ~allow_in_ex | hold;
+    assign pipe_valid = valid_if & ready_go_if & (~flush);
+    assign pc_id = pc;
+    assign valid_id = valid;    // decide pc pipe
+    assign instruction_id = instruction;
+    assign ready_go_id = 1'b1;
+    //if hold, 0 or 1 || 0;
+    //or, store || pipe
+ 
+    assign allow_in_id = !(valid_id) || ready_go_id & (~hold_pipe);
+     
+
+    always@(posedge clk or negedge rst_n)
+    begin
+        if ( ~rst_n )
+        begin;
+            valid <= 1'b0;
+        end
+        else if(allow_in_id)begin
+            valid <= pipe_valid;
+        end
+    end
     
     always@(posedge clk)
     begin
-        if ( ~rst_n )
-        begin
-            pc_id <= `BUS_WIDTH'd0;
-        end
-        else
-        begin
-            if(hold)begin
-                pc_id <= pc_id;
-            end
-            else begin
-                pc_id <= pc_if;
-            end
+        if(pipe_valid & allow_in_id)begin
+            pc <= pc_if;
+            instruction <= instruction_if;
         end
     end
-
-    assign rom_address   = (hold)?pc_id:pc_if;
-    assign instruction_o = (flush | (~rst_n))? `INST_NOP:rom_rdata;
-//    assign instruction_o = (flush | ~rst_n )? 0 : 
-//                            (hold) instruction_i;
+    
+    //output output     output
+    //valid ready_go allow_in_if behavour
+    // 0       1          1         flush
+    // 1       1          1         next_pipe
+    // 0       0          1         next_hold & flush (not used)
+    // 1       0          1         next_hold & flush (not used)
+    // 0       1          0         nothing
+    // 1       1          0         hold & ready to pipe
+    // 0       0          0         nothing
+    // 1       0          0         hold & next_hold
+        
         
 endmodule

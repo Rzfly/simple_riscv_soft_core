@@ -9,12 +9,24 @@ module regfile(
 	input wire[`RS1_WIDTH - 1:0] rs1,
 	input wire[`RD_WIDTH - 1:0] wa,
 	input wire[`DATA_WIDTH - 1:0] wd,
-	output wire[`DATA_WIDTH - 1:0] rd1_data,rd2_data
+	output wire[`DATA_WIDTH - 1:0] rd1_data,rd2_data,
+    //to next pipe
+    output allow_in_regfile,
+    //processing
+    input valid_wb,
+    input ready_go_wb
 );
 
+    wire write_enable;
+    assign write_enable = we & valid_wb & ready_go_wb;
+    wire forward_rs1;
+    assign forward_rs1 = (wa == rs1)?write_enable:1'b0;
+    wire forward_rs2;
+    assign forward_rs2 = (wa == rs2)?write_enable:1'b0;
+    
 	reg [`DATA_WIDTH - 1:0] rf[31:0];
     integer i;
-//    //±£Ö¤ÁËÏÈÐ´ºó¶Á
+//    //ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿?
 //	always @(negedge clk) begin
 //        if(~rst_n)begin
 //            for(i = 0 ; i < 32 ; i = i + 1 )begin
@@ -25,14 +37,20 @@ module regfile(
 //			 rf[wa] <= wd;
 //		end
 //	end
-    //±£Ö¤ÁËÏÈÐ´ºó¶Á
-	always @(negedge clk) begin
-        if((we == 1'b1) &&  (wa != 5'd0)) begin
+    //ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿?
+	always @(posedge clk) begin
+        if( (write_enable == 1'b1) &&  (wa != 5'd0)) begin
 			 rf[wa] <= wd;
 		end
 	end
+	wire rd1_data_temp;
+	wire rd2_data_temp;
+	assign allow_in_regfile = 1'b1;
 	//by default, x0 reg is set to be zero.
-	assign rd1_data = (rs1 != 0) ? rf[rs1] : 0;
-	assign rd2_data = (rs2 != 0) ? rf[rs2] : 0;
+	assign rd1_data_temp = (rs1 != 0) ? rf[rs1] : 0;
+	assign rd2_data_temp = (rs2 != 0) ? rf[rs2] : 0;
+	
+	assign rd1_data = (forward_rs1)?wd:rd1_data_temp;
+	assign rd2_data = (forward_rs2)?wd:rd2_data_temp;
 endmodule
 	

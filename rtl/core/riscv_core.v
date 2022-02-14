@@ -28,6 +28,10 @@ module riscv_core(
     input [`DATA_WIDTH - 1: 0]rom_rdata,
     output [`BUS_WIDTH - 1:0] rom_address,
     input [`DATA_WIDTH - 1: 0]ram_rdata,
+    input rom_addr_ok,
+    input rom_data_ok,
+    input ram_addr_ok,
+    input ram_data_ok,
     output ram_req,
     output rom_req,
     output ram_we,
@@ -39,15 +43,15 @@ module riscv_core(
     
     //instruction fetch signals
     wire [`BUS_WIDTH - 1:0]pc_if;
-    wire [`BUS_WIDTH - 1:0]pc_if_id;
-    wire [`DATA_WIDTH - 1:0]instruction_if;
+    wire [`BUS_WIDTH - 1:0]next_pc;
+//    wire [`BUS_WIDTH - 1:0]pc_if_id;
+//    wire [`DATA_WIDTH - 1:0]instruction_if;
     wire flush_if;
     wire pc_jump;
     wire pc_hold;
     wire [`BUS_WIDTH - 1:0]jump_addr;
     wire read_rom_if;
-    assign ram_req = write_mem_mem | read_mem_mem;
-    assign rom_req = read_rom_if;
+    wire [`DATA_WIDTH - 1:0] instruction_if;
     
     //instruction decode signals
     wire [`BUS_WIDTH - 1:0]pc_id;
@@ -90,7 +94,7 @@ module riscv_core(
     wire [`FUNC6_WIDTH - 1 : 0]ins_func6_id;
     wire [`FUNC3_WIDTH - 1 : 0]ins_func3_id;
     wire [`ALU_INS_TYPE_WIDTH - 1:0] alu_optype_id;
-    wire [`ALU_OP_WIDTH - 1:0] alu_control_i;
+    wire [`ALU_OP_WIDTH - 1:0] alu_control_id;
     
     //excution signals
     wire [`BUS_WIDTH - 1:0]pc_ex;
@@ -132,7 +136,7 @@ module riscv_core(
     assign lui_type_ex = jalr_ex & (~ branch_ex );
     
     
-    wire [`DATA_WIDTH - 1:0] csr2clint_data;   // clint模块读寄存器数据
+    wire [`DATA_WIDTH - 1:0] csr2clint_data;   // clint?????????????
     wire [`DATA_WIDTH - 1:0] clint_csr_mtvec;   // mtvec
     wire [`DATA_WIDTH - 1:0] clint_csr_mepc;    // mepc
     wire [`DATA_WIDTH - 1:0] clint_csr_mstatus; // mstatus
@@ -166,43 +170,82 @@ module riscv_core(
     wire write_reg_wb;
 
     
+    wire hold_if;
+    wire hold_id;
+    //no hold signal for id
+    assign hold_if = stall_pipe;
+    assign hold_id = stall_pipe;
+    assign pc_hold = stall_pipe;
+    wire allow_in_if;
+    wire ready_go_pre;
+    wire valid_pre;
     // regs 
     pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
-        .clk(clk),
-        .rst_n(rst_n),
         .branch_addr(jump_addr),
         .jump(pc_jump),
         .hold(pc_hold),
-        .pc_out(pc_if),
-        .rom_req(read_rom_if)
+        .mem_addr_ok(rom_addr_ok),
+        .rom_req(rom_req),
+        .pc_now(pc_if),
+        .next_pc(next_pc),
+        .allow_in_if(allow_in_if),
+        .ready_go_pre(ready_go_pre),
+        .valid_pre(valid_pre)
     );
-    assign pc_hold = stall_pipe;
+    
+    
     assign pc_jump = branch_res | clint_hold_flag;
     assign jump_addr = (clint_hold_flag)?32'h1C090000:pc_branch_addr_ex;
 
-//    not used
-//    stall_gen stall_gen_inst(
-//        //stall one ins to avoid unnecessary ins excuted
-//        .branch_id(branch_id),
-//        .branch_stall(stall_pc)
-//    );
-
-//    assign instruction_if = rom_rdata;
-    assign flush_if = branch_res | clint_hold_flag ;
-    assign flush_id = branch_res | clint_hold_flag | stall_pipe;
-    //例外尚未实现s
-    assign flush_ex = 1'b0;
+    wire allow_in_id;
+    wire ready_go_if;
+    wire valid_if;
+    pre_if pre_if_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .hold(hold_if),
+        .flush(flush_if),
+        .mem_data_ok(rom_data_ok),
+        .next_pc(next_pc),
+        .pc_if(pc_if),
+        .rom_rdata(rom_rdata),
+        .instruction_if(instruction_if),
+        .allow_in_if(allow_in_if),
+        .valid_pre(valid_pre),
+        .ready_go_pre(ready_go_pre),
+        .allow_in_id(allow_in_id),
+        .valid_if(allow_in_if),
+        .ready_go_if(ready_go_if)
+    );
+    
+    
+    //turn to not valid
+    assign flush_if = branch_res | clint_hold_flag;
+    //turn to not valid
+    assign flush_id = branch_res | clint_hold_flag;
+    //turn to nop
+    assign flush_ex = branch_res | clint_hold_flag | stall_pipe ;
+ 
+    wire allow_in_ex;
+    wire valid_id;
+    wire ready_go_id;
+    
     // regs
     if_id if_id_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .hold(stall_pipe),
-        .flush(flush_if),
+        .flush(flush_id),
+        .hold(hold_id),
         .pc_if(pc_if),
         .pc_id(pc_id),
-        .rom_rdata(rom_rdata),
-        .rom_address(rom_address),
-        .instruction_o(instruction_id)
+        .instruction_if(instruction_if),
+        .instruction_id(instruction_id),
+        .allow_in_id(allow_in_id),
+        .valid_if(allow_in_if),
+        .ready_go_if(ready_go_if),
+        .allow_in_ex(allow_in_ex),
+        .valid_id(valid_id),
+        .ready_go_id(ready_go_id)
     );
     
     // pure logic 
@@ -238,9 +281,15 @@ module riscv_core(
         .ins_optype(alu_optype_id),
         .ins_fun3(ins_func3_id),
         .ins_fun7(ins_func7_id),
-        .alu_operation(alu_control_i)
+        .alu_operation(alu_control_id)
 //        .alu_mask(rs2_mask)
     );
+    
+    //to next pipe
+    wire allow_in_regfile;
+    //processing
+    wire valid_wb;
+    wire ready_go_wb;
     
     //clock for WB.
     //pure logic for id
@@ -253,16 +302,19 @@ module riscv_core(
         .rd2_data(rs2_data_reg),
         .rd1_data(rs1_data_reg),
         .wd(wb_data_wb),
-        .wa(rd_wb)
+        .wa(rd_wb),
+        .allow_in_regfile(allow_in_regfile),
+        .valid_wb(valid_wb),
+        .ready_go_wb(ready_go_wb)
     );
     
-    //有符号扩展 12 -> 32
+    //?з?????? 12 -> 32
     sign_extend sign_extend_inst(
         .immediate_num(imm_short),
         .num(imm_extend_id)
     );
     
-     //有符号扩展或者无符号扩展
+     //?з??????????????????
      mux2num imm_switch_for_immtype(
      .num0(imm_extend_id),
      .num1(imm_long),
@@ -270,40 +322,46 @@ module riscv_core(
      .muxout(imm_before_shift)
      );
 
-    // auipc 立即数扩展到32 地址不乘以2 然而，另一个加数是pc 
+    // auipc ???????????32 ?????????2 ????????????????pc 
     assign imm_shifted_id = {imm_before_shift[`DATA_WIDTH - 2:0],1'b0};
     
-     mux2num imm_switch_for_pc_additon(
+    mux2num imm_switch_for_pc_additon(
      .num0(imm_before_shift),
      .num1(imm_shifted_id),
      .switch(imm_shift_id),
      .muxout(imm_id)
      );
                 
-    //正好都有延迟了
+    //????????????
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
     assign rs1_data_id = rs1_data_reg;
     assign rs2_data_id = rs2_data_reg;
     
+    wire allow_in_mem;
+    wire valid_ex;
+    wire ready_go_ex;
+        
     //regs
     id_ex id_ex_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .rd2_data_i(rs2_data_id),
-        .rd1_data_i(rs1_data_id),
-        .rd2_data_o(rs2_data_ex),
-        .rd1_data_o(rs1_data_ex),
-        .imm_i(imm_id),
-        .imm_o(imm_ex),
-        .instruction_i(instruction_id),
-        .instruction_o(instruction_ex),
+        .hold(hold_id),
+        .flush(flush_id),
+        .rs2_data_id(rs2_data_id),
+        .rs1_data_id(rs1_data_id),
+        .rs2_data_ex(rs2_data_ex),
+        .rs1_data_ex(rs1_data_ex),
+        .imm_id(imm_id),
+        .imm_ex(imm_ex),
+        .instruction_id(instruction_id),
+        .instruction_ex(instruction_ex),
         .control_flow_i(control_flow_id),
         .rs2_id(rs2_id),
         .rs1_id(rs1_id),
         .rd_id(rd_id),
-        .alu_control_i(alu_control_i),
-        .alu_control_o(alu_operation_input),
+        .alu_control_id(alu_control_id),
+        .alu_control_ex(alu_operation_input),
         .ALU_src_ex(ALU_src_ex),
         .branch_ex(branch_ex),
         .auipc_ex(auipc_ex),
@@ -316,10 +374,15 @@ module riscv_core(
         .rd_ex(rd_ex),
         .rs2_ex(rs2_ex),
         .rs1_ex(rs1_ex),
-        .ins_func3_i(ins_func3_id),
-        .ins_func3_o(ins_func3_ex),
-        .flush(flush_id)
+        .allow_in_ex(allow_in_ex),
+        .valid_id(valid_id),
+        .ready_go_id(ready_go_id),
+        .allow_in_mem(allow_in_mem),
+        .valid_ex(valid_ex),
+        .ready_go_ex(ready_go_ex)
     );
+    
+    assign ins_func3_ex = instruction_ex[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH : `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH];
     
     branch_decision branch_decision_inst(
         .branch_req(branch_ex),
@@ -335,16 +398,24 @@ module riscv_core(
     forwarding forwarding_unit(
         .rs1_ex(rs1_ex),
         .rs2_ex(rs2_ex),
-        .rd_wb(rd_wb),
-        .write_reg_wb(write_reg_wb),
         .rd_mem(rd_mem),
         .write_reg_mem(control_flow_mem[0]),
+        .rd_wb(rd_wb),
+        .write_reg_wb(write_reg_wb),
         .rs1_forward(rs1_forward_mux),
         .rs2_forward(rs2_forward_mux)
     );
     
-    //when stall
+    //when hazard, stall. stall = flush & refetch(hold)
     //pc hold,id hold,ex becomes nop intead of other instuctions
+    //when waiting mem, flush.flush = flush & refetch(hold)
+    //ex becomes nop 
+    //id hold
+    //if hold
+    //when branch jump wrong, flush.flush = flush & refetch
+    //ex becomes nop 
+    //id waitting
+    //if refetch
     hazard_detection hazard_detection_unit(
         .read_mem_ex(control_flow_ex[3]),
         .rd_ex(rd_ex),
@@ -371,7 +442,7 @@ module riscv_core(
     );
     
     //pure logic
-    //注意 auipc复用了alu而不是这个加法器
+    //??? auipc??????alu??????????????
     assign branch_adder_in1 = (jalr_ex)? rs1_data_forward : pc_ex;
     assign branch_adder_in2 = imm_ex;
     
@@ -425,48 +496,48 @@ module riscv_core(
      clint clint_inst(
         .clk(clk),
         .rst_n(rst_n),
-        //外部中断输入 来自core
+        //???ж????? ????core
         .int_flag_i(external_int_flag),
-        .inst_i(instruction_ex),          // 指令内容
-        .inst_addr_i(pc_ex),    // 指令地址
-        //兼顾了jal指令
+        .inst_i(instruction_ex),          // ???????
+        .inst_addr_i(pc_ex),    // ?????
+        //?????jal???
         .jump_flag_i(1'b0),
         .jump_addr_i(32'd0),
         .data_i(csr2clint_data),      
         .csr_mtvec(clint_csr_mtvec), 
         .csr_mepc(clint_csr_mepc),           
-        .csr_mstatus(clint_csr_mstatus),         // mstatus寄存器
-        .global_int_en_i(global_int_enable),              // 全局中断使能标志
+        .csr_mstatus(clint_csr_mstatus),         // mstatus?????
+        .global_int_en_i(global_int_enable),              // ????ж??????
         
-        //也就是说，写csr结束以后，hold拉高
-        .hold_flag_o(clint_hold_flag),                 // 流水线暂停标志
+        //????????дcsr???????hold????
+        .hold_flag_o(clint_hold_flag),                 // ???????????
         .we_o(clint2csr_we),        
-        .waddr_o(clint2csr_waddr),         // 写CSR寄存器地址
-        .raddr_o(clint2csr_raddr),         // 读CSR寄存器地址
-        .data_o(clint2csr_wdata),         // 写CSR寄存器数据
-        .int_addr_o(clint_int_pc),     // 中断入口地址
-        .int_assert_o(clint_int_assert)                     // 中断标志
+        .waddr_o(clint2csr_waddr),         // дCSR????????
+        .raddr_o(clint2csr_raddr),         // ??CSR????????
+        .data_o(clint2csr_wdata),         // дCSR?????????
+        .int_addr_o(clint_int_pc),     // ?ж??????
+        .int_assert_o(clint_int_assert)                     // ?ж???
     );
     
     csr_reg csr_reg_inst(
         .clk(clk),
         .rst_n(rst_n),
          // to ex
-        .we_i(csr_we_ex),                      // ex模块写寄存器标志
-        .raddr_i(csr_addr_ex),        // ex模块读寄存器地址
-        .waddr_i(csr_addr_ex),                   // ex模块写寄存器地址
-        .data_i(csr_write_data_ex),                    // ex模块写寄存器数据
-        .data_o(csr_read_data_ex),                     // ex模块读寄存器数据
+        .we_i(csr_we_ex),                      // ex???д????????
+        .raddr_i(csr_addr_ex),        // ex????????????
+        .waddr_i(csr_addr_ex),                   // ex???д????????
+        .data_i(csr_write_data_ex),                    // ex???д?????????
+        .data_o(csr_read_data_ex),                     // ex?????????????
 
         // from clint
-        .clint_we_i(clint2csr_we),                  // clint模块写寄存器标志
-        .clint_raddr_i(clint2csr_waddr),         // clint模块读寄存器地址
-        .clint_waddr_i(clint2csr_raddr),         // clint模块写寄存器地址
-        .clint_data_i(clint_int_pc),          // clint模块写寄存器数据
+        .clint_we_i(clint2csr_we),                  // clint???д????????
+        .clint_raddr_i(clint2csr_waddr),         // clint????????????
+        .clint_waddr_i(clint2csr_raddr),         // clint???д????????
+        .clint_data_i(clint_int_pc),          // clint???д?????????
 
-        .global_int_en_o(global_int_enable),            // 全局中断使能标志
+        .global_int_en_o(global_int_enable),            // ????ж??????
     
-        .clint_data_o(csr2clint_data),       // clint模块读寄存器数据
+        .clint_data_o(csr2clint_data),       // clint?????????????
         .clint_csr_mtvec(clint_csr_mtvec),   // mtvec
         .clint_csr_mepc(clint_csr_mepc),    // mepc
         .clint_csr_mstatus(clint_csr_mstatus) // mstatus
@@ -476,7 +547,7 @@ module riscv_core(
     wire [2:0]mem_address_mux_ex;
     assign mem_address_mux_ex={ csr_type_ex,lui_type_ex,~(lui_type_ex | csr_type_ex)};
 //    assign mem_address_ex = (lui_type_ex)?imm_ex:alu_output_ex;
-//    // num1  num2 同时有效时，优先 num1
+//    // num1  num2 ????Ч??????? num1
     mux3 #(.WIDTH(`DATA_WIDTH))
     mem_address_mux(
         .num0(alu_output_ex),
@@ -487,13 +558,17 @@ module riscv_core(
         .muxout(mem_address_ex)
     );
     
+    wire allow_in_wb;
+    wire valid_mem;
+    wire ready_go_mem;
+        
     //regs
     ex_mem ex_mem_inst(
         .clk(clk),
         .rst_n(rst_n),
         .mem_address_i(mem_address_ex),
-        //写存储用的是regfile的值而不是立即数
-        .mem_write_data_1(rs2_data_forward),
+        //д?洢?????regfile???????????????
+        .mem_write_data_i(rs2_data_forward),
         .mem_address_o(ram_address_mem),
         .mem_write_data_o(ram_wdata_mem),
         .control_flow_i(control_flow_ex),
@@ -503,7 +578,13 @@ module riscv_core(
         .rd_ex(rd_ex),
         .rd_mem(rd_mem),
         .ins_func3_i(ins_func3_ex),
-        .ins_func3_o(ins_func3_mem)
+        .ins_func3_o(ins_func3_mem),
+        .allow_in_mem(allow_in_mem),
+        .valid_ex(valid_ex),
+        .ready_go_ex(ready_go_ex),
+        .allow_in_wb(allow_in_wb),
+        .valid_mem(valid_mem),
+        .ready_go_mem(ready_go_mem)
     );
     wire [1:0]mem_raddr_index;
     wire [1:0]mem_waddr_index;
@@ -571,7 +652,7 @@ module riscv_core(
     assign ram_we = write_mem_mem;
     assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
     assign ram_rdata_mem = ram_rdata;
-   
+
     //regs       
     mem_wb mem_wb_inst(
         .clk(clk),
@@ -588,7 +669,13 @@ module riscv_core(
         //reg destination
         .rd_wb(rd_wb),
         .ins_func3_i(ins_func3_mem),
-        .ins_func3_o(ins_func3_wb)
+        .ins_func3_o(ins_func3_wb),
+        .allow_in_wb(allow_in_wb),
+        .valid_mem(valid_mem),
+        .ready_go_mem(ready_go_mem),
+        .allow_in_regfile(allow_in_regfile),
+        .valid_wb(valid_wb),
+        .ready_go_wb(ready_go_wb)
     );
     
     //pure logic
@@ -661,9 +748,7 @@ module riscv_core(
             end
         endcase
     end
-    
-
-                                
+            
     mux2num  mux2_wb_data_switch(
         .num0(ram_address_wb),
         .num1(ram_rdata_wb_mask),
@@ -671,6 +756,4 @@ module riscv_core(
         .muxout(wb_data_wb)
      );
 
-
-   
 endmodule

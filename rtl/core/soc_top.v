@@ -84,41 +84,10 @@ module soc_top(
     assign ram_wem_a = 4'b0000;
     assign ram_wem_b = ram_wmask;
     assign rom_rdata = (rom_req)?ram_dout_a:`INST_NOP;
-    //ÒªÍíÊÍ·ÅÒ»¸öcycle
+    //Òªï¿½ï¿½ï¿½Í·ï¿½Ò»ï¿½ï¿½cycle
     //assign ram_rdata = (ram_req)?ram_dout_b:32'd0;
     assign ram_rdata = ram_dout_b;  
-      
-//    riscv_core  riscv_core_inst(
-//        .clk(clk),
-//        .rst_n(rst_n),
-//        .rom_rdata(rom_rdata),
-//        .rom_address(rom_address),
-//        .ram_rdata(ram_rdata),
-//        .ram_we(ram_we),
-//        .ram_address(ram_address),
-//        .ram_wdata(ram_wdata)
-    
-//        .rib_ex_addr_o(m0_addr_i),
-//        .rib_ex_data_i(m0_data_o),
-//        .rib_ex_data_o(m0_data_i),
-//        .rib_ex_req_o(m0_req_i),
-//        .rib_ex_we_o(m0_we_i),
-
-//        .rib_pc_addr_o(m1_addr_i),
-//        .rib_pc_data_i(m1_data_o),
-
-//        .jtag_reg_addr_i(jtag_reg_addr_o),
-//        .jtag_reg_data_i(jtag_reg_data_o),
-//        .jtag_reg_we_i(jtag_reg_we_o),
-//        .jtag_reg_data_o(jtag_reg_data_i),
-
-//        .rib_hold_flag_i(rib_hold_flag_o),
-//        .jtag_halt_flag_i(jtag_halt_req_o),
-//        .jtag_reset_flag_i(jtag_reset_req_o),
-
-//        .int_i(int_flag)
-//    );
-    
+         
         
     riscv_core  riscv_core_inst(
         .clk(clk),
