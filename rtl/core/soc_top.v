@@ -51,7 +51,6 @@ module soc_top(
     wire [`DATA_WIDTH - 1:0]bus_axi_data_out;
     wire [`DATA_WIDTH - 1:0]bus_axi_data_in;
     
-    
     wire [`BUS_WIDTH - 1:0]rom_address;
     wire [`DATA_WIDTH - 1:0]rom_rdata;
 //    wire [`DATA_WIDTH - 1:0]rom_wdata;
@@ -72,7 +71,7 @@ module soc_top(
     wire    ram_we_b;
     wire    rom_req;
     wire    ram_req;
-    
+    wire    mem_req;
     assign ram_we_a = 1'b0;
     assign ram_we_b = ram_we;
     assign ram_din_a = 32'd0;
@@ -87,12 +86,22 @@ module soc_top(
     //Ҫ���ͷ�һ��cycle
     //assign ram_rdata = (ram_req)?ram_dout_b:32'd0;
     assign ram_rdata = ram_dout_b;  
-         
-        
+    wire rom_addr_ok;
+    wire rom_data_ok;
+    wire ram_addr_ok;
+    wire ram_data_ok;
+    wire mem_addr_ok;
+    wire mem_data_ok;
+    wire mem_we;
+    wire [`RAM_MASK_WIDTH - 1: 0]mem_wmask;
+    wire [`BUS_WIDTH - 1:0]  mem_address;
+    wire [`DATA_WIDTH - 1: 0] mem_wdata;
+    wire [`DATA_WIDTH - 1: 0] mem_rdata;
+
     riscv_core  riscv_core_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .external_int_flag(1'b0),
+        .external_int_flag(8'h00),
         .rom_address(rom_address),
         .rom_rdata(rom_rdata),
         .ram_address(ram_address),
@@ -101,69 +110,74 @@ module soc_top(
         .ram_wmask(ram_wmask),
         .ram_req(ram_req),
         .rom_req(rom_req),
-        .ram_we(ram_we)
+        .ram_we(ram_we),
+        .rom_addr_ok(rom_addr_ok),
+        .rom_data_ok(rom_data_ok),
+        .ram_addr_ok(ram_addr_ok),
+        .ram_data_ok(ram_data_ok)
     );
     
-//    ram ram_inst(
-//        .clk(clk),
-//        .we(ram_we),
-//        .rst_n(1'b1),
-//        .wem(ram_wmask),
-//        .addr(ram_address),
-//        .datai(ram_wdata),
-//        .datao(ram_rdata)
-//    );
+    mem_arbiter mem_arbiter_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .rom_address({2'b00,rom_address[`BUS_WIDTH - 1:2]}),
+        .rom_rdata(rom_rdata),
+        .rom_addr_ok(rom_addr_ok),
+        .rom_data_ok(rom_data_ok),
+        .rom_req(rom_req),
     
-//    rom rom_inst(
-//        .clk(clk),
-//        .we_i(1'b0),
-//        .rst_n(1'b1),
-//        .addr_i(rom_address),
-////        .datai(bus_axi_data_in),
-//        .data_o(rom_rdata)
-//    );
-
-    sirv_duelport_ram #(
-        .FORCE_X2ZERO(0),
-        .DP(`MEMORY_DEPTH),
-        .DW(`DATA_WIDTH),
-        .MW(`RAM_MASK_WIDTH),
-        .AW(`DATA_WIDTH) 
-    ) sirv_duelport_ram_inst(
-          .rst_n (rst_n ),
-          .clk (clk ),
-          .cs  (1'b1  ),
-          .we_a  (ram_we_a  ),
-          .we_b  (ram_we_b  ),
-          .addr_a(ram_addr_a),
-          .addr_b(ram_addr_b),
-          .din_a (ram_din_a ),
-          .din_b (ram_din_b ),
-          .wem_a (ram_wem_a),
-          .wem_b (ram_wem_b),
-          .dout_a(ram_dout_a),
-          .dout_b(ram_dout_b)
+        .ram_address({2'b00,ram_address[`BUS_WIDTH - 1:2]}),
+        .ram_wdata(ram_wdata),
+        .ram_wmask(ram_wmask),
+        .ram_rdata(ram_rdata),
+        .ram_addr_ok(ram_addr_ok),
+        .ram_data_ok(ram_data_ok),
+        .ram_req(ram_req),
+        .ram_we(ram_we),
+    
+        .mem_address(mem_address),
+        .mem_rdata(mem_rdata),
+        .mem_wdata(mem_wdata),
+        .mem_wmask(mem_wmask),
+        .mem_req(mem_req),
+        .mem_we(mem_we),
+        .mem_addr_ok(mem_addr_ok),
+        .mem_data_ok(mem_data_ok)
     );
-
-//    wire [`DATA_WIDTH - 1  :0]ram_din_a;
-//    wire [`DATA_WIDTH - 1  :0]ram_din_b;
-//    wire [`BUS_WIDTH - 1  :0]ram_addr_a;
-//    wire [`BUS_WIDTH - 1  :0]ram_addr_b;
-//    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_a;
-//    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_b;
-//    wire [`DATA_WIDTH-1:0]ram_dout_a;
-//    wire [`DATA_WIDTH-1:0]ram_dout_b;
-//    wire    ram_we_a;
-//    wire    ram_we_b,
-    
-//    ram ram_inst(
-//        .clk(clk),
-//        .we(1'b1),
-//        .rst_n(1'b1),
-//        .addr(bus_axi_addr),
-//        .datai(bus_axi_data_in),
-//        .datao(bus_axi_data_out)
+//    sirv_duelport_ram #(
+//        .FORCE_X2ZERO(0),
+//        .DP(`MEMORY_DEPTH),
+//        .DW(`DATA_WIDTH),
+//        .MW(`RAM_MASK_WIDTH),
+//        .AW(`DATA_WIDTH) 
+//    ) sirv_duelport_ram_inst(
+//          .rst_n (rst_n ),
+//          .clk (clk ),
+//          .cs  (1'b1  ),
+//          .we_a  (ram_we_a  ),
+//          .we_b  (ram_we_b  ),
+//          .addr_a(ram_addr_a),
+//          .addr_b(ram_addr_b),
+//          .din_a (ram_din_a ),
+//          .din_b (ram_din_b ),
+//          .wem_a (ram_wem_a),
+//          .wem_b (ram_wem_b),
+//          .dout_a(ram_dout_a),
+//          .dout_b(ram_dout_b)
 //    );
-    
+
+      srambus srambus_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .we(mem_we),
+        .wem(mem_wmask),
+        .size(2'b11),
+        .addr(mem_address),
+        .datai(mem_wdata),
+        .datao(mem_rdata),
+        .mem_req(mem_req),
+        .mem_addr_ok(mem_addr_ok),
+        .mem_data_ok(mem_data_ok)
+    );
     
 endmodule

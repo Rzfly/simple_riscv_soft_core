@@ -40,7 +40,7 @@ module pre_if(
     //to next pipe
     input allow_in_id,
     //processing
-    output valid_if,
+    output wire valid_o,
     output ready_go_if
     );
     
@@ -61,16 +61,15 @@ module pre_if(
     assign hold_pipe = ~allow_in_id | hold;
     assign pipe_valid = valid_pre & ready_go_pre & (~flush);
     assign pc_if = pc;
-//    assign valid_if = valid &  (mem_data_ok | instruction_valid);
-    assign valid_if = valid;    // decide pc pipe
     assign instruction_if = (instruction_valid)?instruction:rom_rdata;
     // not related with flush
-    assign ready_go_if = (state[3]) || (mem_data_ok & ( state[2] | state[1]));
+    assign ready_go_if = (state[3]) || (mem_ready & ( state[2] | state[1]));
     wire data_allow_in;
     //note when state[0], allow_in_wb = 0 but data_allow_in = 1
-    assign data_allow_in = (!(valid_if | instruction_valid)) || (ready_go_pre) & (~hold_pipe);
+    assign data_allow_in = (!(valid | instruction_valid)) || (ready_go_pre) & (~hold_pipe);
     assign allow_in_if = next_state[1] || next_state[2];
-     
+    assign valid_o = valid;    // decide pc pipe
+
 //    flush  allow hold hold pipe
 //      1      0    0       1
 //      1      0    1       x
@@ -94,7 +93,7 @@ module pre_if(
 
     always@(posedge clk or negedge rst_n)begin
        if ( ~rst_n )begin
-            state <= 1'b0;
+            state <= state_empty;
         end
         else begin
             state <= next_state;
@@ -148,6 +147,9 @@ module pre_if(
                     next_state = state_empty;
                 end
             end
+            default:begin
+                next_state = state_empty;
+            end
        endcase
     end
         
@@ -164,7 +166,11 @@ module pre_if(
     
     always@(posedge clk)
     begin
-        if(pipe_valid && allow_in_if)begin
+        if ( ~rst_n )
+        begin;
+            pc <= 32'hfffffffc;
+        end
+        else if(pipe_valid && allow_in_if)begin
             pc <= next_pc;
         end
     end
@@ -173,15 +179,17 @@ module pre_if(
     begin
         if(~rst_n)begin
             instruction_valid <=  1'b0;
+            instruction <= 0;
         end
         //never occur
         else if( flush )begin
             instruction_valid <=  1'b0;
+            instruction <= `INST_NOP;
         end
         //寄存一次 省略了一个状态
         else if( next_state[3] && !(instruction_valid))begin
             instruction <= rom_rdata;
-            instruction_valid <= valid_if;
+            instruction_valid <= valid;
         end
         else if( next_state[2] || next_state[1] ||  next_state[0])begin
             instruction_valid <=  1'b0;

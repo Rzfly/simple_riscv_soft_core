@@ -58,7 +58,7 @@ module if_id(
     //or, store || pipe
  
     assign allow_in_id = !(valid_id) || ready_go_id & (~hold_pipe);
-     
+
 
     always@(posedge clk or negedge rst_n)
     begin
@@ -73,7 +73,12 @@ module if_id(
     
     always@(posedge clk)
     begin
-        if(pipe_valid & allow_in_id)begin
+        if ( ~rst_n )
+        begin;
+            pc <= 0;
+            instruction <= 0;
+        end
+        else if(pipe_valid & allow_in_id)begin
             pc <= pc_if;
             instruction <= instruction_if;
         end

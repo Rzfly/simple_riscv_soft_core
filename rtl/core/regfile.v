@@ -11,7 +11,7 @@ module regfile(
 	input wire[`DATA_WIDTH - 1:0] wd,
 	output wire[`DATA_WIDTH - 1:0] rd1_data,rd2_data,
     //to next pipe
-    output allow_in_regfile,
+    output reg allow_in_regfile,
     //processing
     input valid_wb,
     input ready_go_wb
@@ -45,7 +45,16 @@ module regfile(
 	end
 	wire rd1_data_temp;
 	wire rd2_data_temp;
-	assign allow_in_regfile = 1'b1;
+	
+	always@(posedge clk or negedge rst_n)begin
+	   if(~rst_n)begin
+	       allow_in_regfile <= 1'b0;
+	   end
+	   else begin
+	       allow_in_regfile <= 1'b1;
+	   end
+	end
+	
 	//by default, x0 reg is set to be zero.
 	assign rd1_data_temp = (rs1 != 0) ? rf[rs1] : 0;
 	assign rd2_data_temp = (rs2 != 0) ? rf[rs2] : 0;

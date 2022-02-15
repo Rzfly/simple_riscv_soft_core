@@ -26,12 +26,12 @@ module id_ex(
     output [`DATA_WIDTH - 1:0]pc_ex,
     input csr_type_id,
     output csr_type_ex,
-    input [`ALU_CONTROL_CODE_WIDTH + 4 :0]control_flow_id,
+    input [7 :0]control_flow_id,
     output jalr_ex,
     output auipc_ex,
     output branch_ex,
     output ALU_src_ex,
-    output [3:0]control_flow_o,
+    output [3:0]control_flow_ex,
     //to next pipe
     input allow_in_mem,
     //processing
@@ -61,20 +61,20 @@ module id_ex(
     reg [`RS1_WIDTH - 1:0] rs1;
     
     assign rs1_data_ex = rs1_data;
-    assign rs2_data_ex = rs1_data;
+    assign rs2_data_ex = rs2_data;
     assign rd_ex = rd;
     assign rs2_ex = rs2;
-    assign rs1_ex = rs2;
+    assign rs1_ex = rs1;
     assign imm_ex = imm;
     assign instruction_ex = instruction;
     assign pc_ex = pc;
-    assign csr_type_ex = csr_type;
+    assign csr_type_ex = csr_type & valid_ex;
     assign jalr_ex = jalr & valid_ex;
     assign auipc_ex = auipc & valid_ex;
     assign branch_ex = branch & valid_ex;
     assign ALU_src_ex = ALU_src & valid_ex;
     assign alu_control_ex = alu_control & {`ALU_OP_WIDTH{valid_ex}};
-    assign control_flow_o = control_flow & {4{valid_ex}};
+    assign control_flow_ex = control_flow & {4{valid_ex}};
     
     reg valid;
     wire pipe_valid;
@@ -103,7 +103,26 @@ module id_ex(
     
     always@(posedge clk)
     begin
-        if(pipe_valid & allow_in_ex)begin
+        if ( ~rst_n )
+        begin;
+            pc <= 0;
+            rs1 <= 0;
+            rs2 <= 0;
+            rs2_data <= 0;
+            rs1_data <= 0;
+            imm <= 0;
+            control_flow <= 0;
+            rd <= 0; 
+            jalr <= 0;
+            auipc <= 0;
+            branch <= 0;
+            ALU_src <= 0;
+            alu_control <= 0;
+            csr_type <= 0;
+            pc <= 0;
+            instruction <= 0;
+        end
+        else if(pipe_valid & allow_in_ex)begin
             pc <= pc_id;
             rs1 <= rs1_id;
             rs2 <= rs2_id;
@@ -118,7 +137,6 @@ module id_ex(
             ALU_src <= control_flow_id[4];
             alu_control <= alu_control_id;
             csr_type <= csr_type_id;
-            pc <= pc_id;
             instruction <= instruction_id;
         end
     end

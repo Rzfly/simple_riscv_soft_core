@@ -70,6 +70,10 @@ module clint(
     assign hold_flag_o = ((int_state != S_INT_IDLE) | (csr_state != S_CSR_IDLE))? 1'b1: 1'b0;
 
 
+    always @ (*) begin
+        raddr_o = 0;
+    end
+    
     // ÷–∂œ÷Ÿ≤√¬ﬂº≠
     always @ (*) begin
         if (~rst_n) begin

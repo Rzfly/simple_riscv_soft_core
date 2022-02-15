@@ -11,7 +11,7 @@ module mem_wb(
     input [`DATA_WIDTH - 1:0]mem_read_data_i,
     input [`BUS_WIDTH - 1:0] mem_address_i,
     input [`RD_WIDTH - 1:0]  rd_mem,
-    input [1:0]control_flow_i,
+    input [1:0]control_flow_mem,
     output [`BUS_WIDTH - 1:0] mem_address_o,
     output [`DATA_WIDTH - 1:0]mem_read_data_o,
     output write_reg,
@@ -47,16 +47,16 @@ module mem_wb(
     reg [3:0] next_state;
     wire pipe_valid;
     wire hold_pipe;
-    wire mem_ready;
+    wire pipe_ready;
     wire ram_req_type;
     assign ram_req_type = mem2reg;
-    assign mem_ready = (~ram_req_type) | (mem_data_ok & ram_req_type);
+    assign pipe_ready = ((~ram_req_type) | (mem_data_ok & ram_req_type));
     assign hold_pipe = (~allow_in_regfile) | hold;
     assign pipe_valid = valid_mem & ready_go_mem & (~flush);
     assign valid_wb = valid;    // decide pc pipe
     assign mem_read_data_o = (ram_data_valid)?mem_read_data:mem_read_data_i;
     // note there can be one more state ,but emited
-    assign ready_go_wb = (state[3]) || (mem_data_ok & ( state[2] | state[1]));
+    assign ready_go_wb = (state[3]) || (pipe_ready & ( state[2] | state[1]));
     wire data_allow_in;
     //note when state[0], allow_in_wb = 0 but data_allow_in = 1
     assign data_allow_in = (!(valid_wb | ram_data_valid)) || (ready_go_wb) & (~hold_pipe);
@@ -69,13 +69,13 @@ module mem_wb(
     assign ins_func3_o = ins_func3;
     assign mem2reg = control_flow[1] & valid_wb;
     //valid for flush£¬ not for write valid
-    assign write_reg = control_flow[0] & valid_wb & mem_ready;
+    assign write_reg = control_flow[0] & pipe_ready;
     assign rd_wb = rd;
     
 
     always@(posedge clk or negedge rst_n)begin
        if ( ~rst_n )begin
-            state <= 1'b0;
+            state <= state_empty;
         end
         else begin
             state <= next_state;
@@ -96,10 +96,10 @@ module mem_wb(
                 end
             end
             state_empty:begin
-                if( mem_ready & hold_pipe & data_allow_in)begin
+                if( pipe_ready & hold_pipe & data_allow_in)begin
                     next_state = state_full;
                 end
-                else if(mem_ready & data_allow_in & (~flush)) begin
+                else if(pipe_ready & data_allow_in & (~flush)) begin
                     next_state = state_pipe;
                 end
                 else if( ram_req_type & (~mem_data_ok) & flush)begin
@@ -110,10 +110,10 @@ module mem_wb(
                 end
             end
             state_pipe:begin
-                if (!mem_ready)begin
+                if (!pipe_ready)begin
                     next_state = state_empty;
                 end
-                else if( mem_ready & hold_pipe & data_allow_in)begin
+                else if( pipe_ready & hold_pipe & data_allow_in)begin
                     next_state = state_full;
                 end
                 else begin
@@ -128,6 +128,9 @@ module mem_wb(
                 else begin
                     next_state = state_empty;
                 end
+            end
+            default:begin
+                next_state = state_empty;
             end
        endcase
     end
@@ -154,9 +157,15 @@ module mem_wb(
     
     always@(posedge clk)
     begin
-        if(pipe_valid && allow_in_wb)begin
+        if( ~rst_n )begin
+            mem_address <= 0;
+            control_flow <=  0;
+            rd <=  0;
+            ins_func3 <=  0;
+        end
+        else if(pipe_valid && allow_in_wb)begin
             mem_address <= mem_address_i;
-            control_flow <= control_flow_i;
+            control_flow <= control_flow_mem;
             rd <= rd_mem;
             ins_func3 <= ins_func3_i;
         end
@@ -166,6 +175,7 @@ module mem_wb(
     begin
         if(~rst_n)begin
             ram_data_valid <=  1'b0;
+            ram_data_valid <= 0;
         end
         else if( flush )begin
             ram_data_valid <=  1'b0;

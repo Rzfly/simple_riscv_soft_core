@@ -33,13 +33,15 @@ module sirv_sim_ram
 )
 (
   input             clk, 
+  input  rst_n,
   input  [DW-1  :0] din, 
   input  [AW-1  :0] addr,
   input             cs,
   input             we,
   input  [MW-1:0]   wem,
-  input  rst_n,
-  output [DW-1:0]   dout
+  output [DW-1:0]   dout,
+  output mem_addr_ok,
+  output mem_data_ok
 );
 
     reg [DW-1:0] mem_r [0:DP-1];
@@ -47,6 +49,11 @@ module sirv_sim_ram
     wire [MW-1:0] wen;
     wire ren;
 
+
+    reg read_data_ok;
+    assign mem_addr_ok = cs & rst_n;
+    assign mem_data_ok = we | read_data_ok;
+    
     assign ren = cs & (~we);
     assign wen = ({MW{cs & we}} & wem);
     
@@ -63,36 +70,58 @@ module sirv_sim_ram
     begin
         if(~rst_n)begin
             addr_r <= 0;
+            read_data_ok <= 1'b0;
         end
         else if (ren)begin
             addr_r <= addr;
+            read_data_ok <= 1'b1;
+        end
+        else begin
+            read_data_ok <= 1'b0;
         end
     end
-
     generate
       for (i = 0; i < MW; i = i+1) begin :mem
         if((8*i+8) > DW ) begin: last
           always @(posedge clk) begin
-            if(~rst_n)begin
-               mem_r[addr][DW-1:8*i] <= 0;
-            end
-            else if (wen[i]) begin
+            if (wen[i]) begin
                mem_r[addr][DW-1:8*i] <= din[DW-1:8*i];
             end
           end
         end
         else begin: non_last
           always @(posedge clk) begin
-            if(~rst_n)begin
-               mem_r[addr][8*i+7:8*i] <= 0;
-            end
-            else if (wen[i]) begin
+            if (wen[i]) begin
                mem_r[addr][8*i+7:8*i] <= din[8*i+7:8*i];
             end
           end
         end
       end
     endgenerate
+//    generate
+//      for (i = 0; i < MW; i = i+1) begin :mem
+//        if((8*i+8) > DW ) begin: last
+//          always @(posedge clk) begin
+//            if(~rst_n)begin
+//               mem_r[addr][DW-1:8*i] <= 0;
+//            end
+//            else if (wen[i]) begin
+//               mem_r[addr][DW-1:8*i] <= din[DW-1:8*i];
+//            end
+//          end
+//        end
+//        else begin: non_last
+//          always @(posedge clk) begin
+//            if(~rst_n)begin
+//               mem_r[addr][8*i+7:8*i] <= 0;
+//            end
+//            else if (wen[i]) begin
+//               mem_r[addr][8*i+7:8*i] <= din[8*i+7:8*i];
+//            end
+//          end
+//        end
+//      end
+//    endgenerate
 
   wire [DW-1:0] dout_pre;
   assign dout_pre = mem_r[addr_r];

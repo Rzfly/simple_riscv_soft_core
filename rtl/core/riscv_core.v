@@ -24,7 +24,7 @@
 module riscv_core(
     input clk,
     input rst_n,
-    input external_int_flag,
+    input [7:0]external_int_flag,
     input [`DATA_WIDTH - 1: 0]rom_rdata,
     output [`BUS_WIDTH - 1:0] rom_address,
     input [`DATA_WIDTH - 1: 0]ram_rdata,
@@ -40,17 +40,19 @@ module riscv_core(
     output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask
     );
     
+    //self_arbiter
+//    assign 
     
     //instruction fetch signals
     wire [`BUS_WIDTH - 1:0]pc_if;
     wire [`BUS_WIDTH - 1:0]next_pc;
+    assign rom_address = next_pc;
 //    wire [`BUS_WIDTH - 1:0]pc_if_id;
 //    wire [`DATA_WIDTH - 1:0]instruction_if;
     wire flush_if;
     wire pc_jump;
     wire pc_hold;
     wire [`BUS_WIDTH - 1:0]jump_addr;
-    wire read_rom_if;
     wire [`DATA_WIDTH - 1:0] instruction_if;
     
     //instruction decode signals
@@ -69,7 +71,7 @@ module riscv_core(
     wire write_reg_id;
     //for auipc
     wire imm_shift_id;
-	wire imm_auipc_id;
+//	wire imm_auipc_id;
     wire imm_src_id;
     wire auipc_id;
     wire jalr_id;
@@ -86,7 +88,7 @@ module riscv_core(
     wire [`DATA_WIDTH - 1:0] imm_extend_id;
     wire [`DATA_WIDTH - 1:0] imm_before_shift;
     wire [`DATA_WIDTH - 1:0] imm_shifted_id;
-    wire [`DATA_WIDTH - 1:0] imm_for_pc_addition;
+//    wire [`DATA_WIDTH - 1:0] imm_for_pc_addition;
     wire [`DATA_WIDTH - 1:0] imm_id;
     
     wire [`OP_WIDTH - 1:0]ins_opcode_id;
@@ -125,8 +127,8 @@ module riscv_core(
 
 //    wire [`DATA_WIDTH - 1:0] alu_input_num1_branch;
     
-    wire [`ALU_CONTROL_CODE_WIDTH - 1: 0]ALU_control_ex;
-    wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;  
+    wire [`ALU_OP_WIDTH - 1: 0]alu_control_ex;
+//    wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;  
     wire [`DATA_WIDTH - 1:0] alu_output_ex;
     wire alu_zero;
     wire stall_pipe;
@@ -143,9 +145,9 @@ module riscv_core(
     wire global_int_enable;
     wire clint_hold_flag;
     wire clint2csr_we;
-    wire clint2csr_waddr;
-    wire clint2csr_raddr;
-    wire clint2csr_wdata;
+    wire [`BUS_WIDTH - 1 : 0] clint2csr_waddr;
+    wire [`BUS_WIDTH - 1 : 0] clint2csr_raddr;
+    wire [`DATA_WIDTH - 1 : 0] clint2csr_wdata;
     wire [`BUS_WIDTH - 1:0] clint_int_pc;
     wire clint_int_assert;
     
@@ -186,13 +188,12 @@ module riscv_core(
         .hold(pc_hold),
         .mem_addr_ok(rom_addr_ok),
         .rom_req(rom_req),
-        .pc_now(pc_if),
+        .pc_if(pc_if),
         .next_pc(next_pc),
         .allow_in_if(allow_in_if),
         .ready_go_pre(ready_go_pre),
         .valid_pre(valid_pre)
     );
-    
     
     assign pc_jump = branch_res | clint_hold_flag;
     assign jump_addr = (clint_hold_flag)?32'h1C090000:pc_branch_addr_ex;
@@ -214,7 +215,7 @@ module riscv_core(
         .valid_pre(valid_pre),
         .ready_go_pre(ready_go_pre),
         .allow_in_id(allow_in_id),
-        .valid_if(allow_in_if),
+        .valid_o(valid_if),
         .ready_go_if(ready_go_if)
     );
     
@@ -346,8 +347,8 @@ module riscv_core(
     id_ex id_ex_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .hold(hold_id),
-        .flush(flush_id),
+        .hold(1'b0),
+        .flush(flush_ex),
         .rs2_data_id(rs2_data_id),
         .rs1_data_id(rs1_data_id),
         .rs2_data_ex(rs2_data_ex),
@@ -356,21 +357,21 @@ module riscv_core(
         .imm_ex(imm_ex),
         .instruction_id(instruction_id),
         .instruction_ex(instruction_ex),
-        .control_flow_i(control_flow_id),
+        .control_flow_id(control_flow_id),
         .rs2_id(rs2_id),
         .rs1_id(rs1_id),
         .rd_id(rd_id),
         .alu_control_id(alu_control_id),
-        .alu_control_ex(alu_operation_input),
+        .alu_control_ex(alu_control_ex),
         .ALU_src_ex(ALU_src_ex),
         .branch_ex(branch_ex),
         .auipc_ex(auipc_ex),
         .jalr_ex(jalr_ex),
-        .control_flow_o(control_flow_ex),
+        .control_flow_ex(control_flow_ex),
         .csr_type_id(csr_type_id),
         .csr_type_ex(csr_type_ex),
-        .pc_i(pc_id),
-        .pc_o(pc_ex),
+        .pc_id(pc_id),
+        .pc_ex(pc_ex),
         .rd_ex(rd_ex),
         .rs2_ex(rs2_ex),
         .rs1_ex(rs1_ex),
@@ -469,7 +470,7 @@ module riscv_core(
     alu alu_inst(
         .alu_src_1(alu_input_num1),
         .alu_src_2(alu_input_num2),
-        .operation(alu_operation_input),
+        .operation(alu_control_ex),
         .alu_output(alu_output_ex),
         .alu_zero(alu_zero)
     );
@@ -478,7 +479,7 @@ module riscv_core(
 //    wire [`DATA_WIDTH - 1:0]csr_read_data;
     wire [`DATA_WIDTH - 1:0]csr_read_data_ex;
     wire [`DATA_WIDTH - 1:0]csr_write_data_ex;
-    wire [`DATA_WIDTH - 1:0]csr_we_ex;
+    wire csr_we_ex;
 //    wire [`DATA_WIDTH - 1:0]csr_read_data;
     
     csr_control csr_control_inst(
@@ -515,20 +516,20 @@ module riscv_core(
         .waddr_o(clint2csr_waddr),         // §ÕCSR????????
         .raddr_o(clint2csr_raddr),         // ??CSR????????
         .data_o(clint2csr_wdata),         // §ÕCSR?????????
-        .int_addr_o(clint_int_pc),     // ?§Ø??????
-        .int_assert_o(clint_int_assert)                     // ?§Ø???
+        .int_addr_o(clint_int_pc), 
+        .int_assert_o(clint_int_assert) 
     );
     
     csr_reg csr_reg_inst(
         .clk(clk),
         .rst_n(rst_n),
          // to ex
-        .we_i(csr_we_ex),                      // ex???§Õ????????
-        .raddr_i(csr_addr_ex),        // ex????????????
-        .waddr_i(csr_addr_ex),                   // ex???§Õ????????
-        .data_i(csr_write_data_ex),                    // ex???§Õ?????????
-        .data_o(csr_read_data_ex),                     // ex?????????????
-
+        .we_i(csr_we_ex),
+        .raddr_i(csr_addr_ex), 
+        .waddr_i(csr_addr_ex), 
+        .data_i(csr_write_data_ex), 
+        .data_o(csr_read_data_ex), 
+        
         // from clint
         .clint_we_i(clint2csr_we),                  // clint???§Õ????????
         .clint_raddr_i(clint2csr_waddr),         // clint????????????
@@ -566,13 +567,16 @@ module riscv_core(
     ex_mem ex_mem_inst(
         .clk(clk),
         .rst_n(rst_n),
+        .flush(1'b0),
+        .hold(1'b0),
+        .mem_addr_ok(ram_addr_ok),
+        .ram_req(ram_req),
         .mem_address_i(mem_address_ex),
-        //§Õ?›¥?????regfile???????????????
         .mem_write_data_i(rs2_data_forward),
         .mem_address_o(ram_address_mem),
         .mem_write_data_o(ram_wdata_mem),
-        .control_flow_i(control_flow_ex),
-        .control_flow_o(control_flow_mem),
+        .control_flow_ex(control_flow_ex),
+        .control_flow_mem(control_flow_mem),
         .mem_write(write_mem_mem),
         .mem_read(read_mem_mem),
         .rd_ex(rd_ex),
@@ -652,17 +656,20 @@ module riscv_core(
     assign ram_we = write_mem_mem;
     assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
     assign ram_rdata_mem = ram_rdata;
-
+    
     //regs       
     mem_wb mem_wb_inst(
         .clk(clk),
         .rst_n(rst_n),
+        .flush(1'b0),
+        .hold(1'b0),
+        .mem_data_ok(ram_data_ok),
         .mem_read_data_i(ram_rdata_mem),
         .mem_read_data_o(ram_rdata_wb),
         .mem_address_i(ram_address_mem),
         .mem_address_o(ram_address_wb),
         //read_data from memory
-        .control_flow_i(control_flow_mem),
+        .control_flow_mem(control_flow_mem),
         .write_reg(write_reg_wb),
         .mem2reg(mem2reg_wb),
         .rd_mem(rd_mem),

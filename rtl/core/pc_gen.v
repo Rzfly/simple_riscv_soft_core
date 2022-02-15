@@ -32,7 +32,7 @@ module pc_gen #(
     input mem_addr_ok,
     //input mem_ok,
     output rom_req,
-    input [`BUS_WIDTH - 1:0] pc_now,
+    input [`BUS_WIDTH - 1:0] pc_if,
     output [`BUS_WIDTH - 1:0] next_pc,
     //not used
     input allow_in_if,
@@ -41,10 +41,13 @@ module pc_gen #(
     );
 
     wire hold_pipe;
+    wire [`BUS_WIDTH - 1:0] pc_add;
+    assign pc_add = pc_if + {`BUS_WIDTH'd4};
     assign hold_pipe = ~allow_in_if | hold;
-    assign next_pc = (hold_pipe)?pc_now:(jump)?branch_addr:(pc_now + 4);
+    assign next_pc = (hold_pipe)?pc_if:(jump)?branch_addr:pc_add;
     assign ready_go_pre = rom_req & mem_addr_ok;
-    assign valid_pre = 1'b1;
+    //if no ready go, next stage set this to zero
+    assign valid_pre = mem_addr_ok;
     assign rom_req = allow_in_if & (~hold);
     
     

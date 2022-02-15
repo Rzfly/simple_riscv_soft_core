@@ -16,8 +16,8 @@ module ex_mem(
     //note that width of instuction and data is not sure to be the same
     output [`BUS_WIDTH - 1:0]mem_address_o,
     output [`DATA_WIDTH - 1:0]mem_write_data_o,
-    input [3:0]control_flow_i,
-    output [1:0]control_flow_o,
+    input [3:0]control_flow_ex,
+    output [1:0]control_flow_mem,
     output mem_write,
     output mem_read,
     input [`RD_WIDTH - 1:0]rd_ex,
@@ -49,7 +49,7 @@ module ex_mem(
     assign pipe_valid = valid_ex & ready_go_ex & (~flush);
     assign valid_mem = valid;    // decide pc pipe
 //    assign ready_go_ex = ram_req & mem_addr_ok;
-    assign ready_go_mem = ram_req & mem_addr_ok;
+    assign ready_go_mem = (ram_req & mem_addr_ok) || !ram_req_type;
     assign ram_req =  allow_in_wb & (~hold) & ram_req_type & valid_mem;
     //related with valid
     assign ram_req_type =  (mem_read | mem_write);
@@ -70,10 +70,18 @@ module ex_mem(
     
     always@(posedge clk)
     begin
-        if(pipe_valid & allow_in_mem)begin
+        if ( ~rst_n )
+        begin;
+            reg_data <= 0;
+            mem_address <= 0;
+            control_flow <= 0;
+            rd <= 0;
+            ins_func3 <= 0;
+        end
+        else if (pipe_valid & allow_in_mem)begin
             reg_data <= mem_write_data_i;
             mem_address <= mem_address_i;
-            control_flow <= control_flow_i;
+            control_flow <= control_flow_ex;
             rd <= rd_ex;
             ins_func3 <= ins_func3_i;
         end
@@ -82,7 +90,7 @@ module ex_mem(
     assign  ins_func3_o  = ins_func3;
     assign  mem_write_data_o = reg_data;
     assign  mem_address_o = mem_address[`BUS_WIDTH - 1:0];
-    assign  control_flow_o = control_flow[1:0] & {2{valid_mem}};
+    assign  control_flow_mem = control_flow[1:0] & {2{valid_mem}};
     assign  rd_mem = rd;
     assign  mem_read = control_flow[3] & valid_mem;
     assign  mem_write = control_flow[2] & valid_mem;

@@ -20,48 +20,41 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-
 `include "include.v"
 
 module ram #(
     parameter DEPTH = 1024
 )(
     input clk,
-    input we,
     input rst_n,
+    input mem_req,
+    input we,
     input [`BUS_WIDTH - 1:0]addr,
+    input size,
     input [`DATA_WIDTH - 1:0]datai,
     output [`DATA_WIDTH - 1:0]datao,
-    input [`RAM_MASK_WIDTH - 1:0]wem
+    input [`RAM_MASK_WIDTH - 1:0]wem,
+    output mem_addr_ok,
+    output mem_data_ok
 );
 
-//    memory_ram memory_ram_inst(
-//        .clka(clk),
-//        .wea(we),
-//        //多用了一个非门
-//        .rsta(~rst_n),
-//        .addra(addr),
-//        .dina(datai),
-//        .douta(datao)
-//    );
- sirv_gnrl_ram #(
-    .FORCE_X2ZERO(0),
-    .DP(`MEMORY_DEPTH),
-    .DW(`DATA_WIDTH),
-    .MW(4),
-    .AW(`DATA_WIDTH) 
-  ) u_e203_itcm_gnrl_ram(
-  .sd  (1'b1 ),
-  .ds  (1'b1  ),
-  .ls  (1'b1),
+ sirv_sim_ram #(
+  .DP(512),
+  .FORCE_X2ZER(0),
+  .DW(32),
+  .MW(4),
+  .AW(32) 
+  )sirv_sim_ram_inst(
+    .clk (clk ),
+    .rst_n (rst_n ),
+    .cs  (mem_req),
+    .we  (we  ),
+    .addr(addr),
+    .din (datai ),
+    .wem (wem),
+    .dout(datao),
+    .mem_addr_ok(mem_addr_ok),
+    .mem_data_ok(mem_data_ok)
+);
 
-  .rst_n (rst_n ),
-  .clk (clk ),
-  .cs  (1'b1  ),
-  .we  (we  ),
-  .addr(addr),
-  .din (datai ),
-  .wem (wem),
-  .dout(datao)
-  );
 endmodule

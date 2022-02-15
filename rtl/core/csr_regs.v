@@ -24,8 +24,8 @@ module csr_reg(
 
     // form ex
     input wire we_i,                            // ex模块写寄存器标志
-    input wire[`MemAddrWIDTH - 1 :0]  raddr_i,        // ex模块读寄存器地址
-    input wire[`MemAddrWIDTH - 1 :0]  waddr_i,        // ex模块写寄存器地址
+    input wire[`CsrMemAddrWIDTH - 1 :0]  raddr_i,        // ex模块读寄存器地址
+    input wire[`CsrMemAddrWIDTH - 1 :0]  waddr_i,        // ex模块写寄存器地址
     input wire[`DATA_WIDTH - 1:0]     data_i,             // ex模块写寄存器数据
 
     // from clint
