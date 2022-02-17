@@ -53,7 +53,13 @@ module riscv_core(
     wire pc_jump;
     wire pc_hold;
     wire [`BUS_WIDTH - 1:0]jump_addr;
-    wire [`DATA_WIDTH - 1:0] instruction_if;
+    wire [`DATA_WIDTH - 1:0] instruction_if; 
+    wire allow_in_if;
+    wire ready_go_pre;
+    wire valid_pre;
+    wire allow_in_id;
+    wire ready_go_if;
+    wire valid_if;
     
     //instruction decode signals
     wire [`BUS_WIDTH - 1:0]pc_id;
@@ -77,8 +83,9 @@ module riscv_core(
     wire jalr_id;
     wire flush_id;
     wire csr_type_id;
-    wire [7 :0]control_flow_id;
-    assign control_flow_id = {jalr_id,auipc_id,branch_id,ALU_src_id,read_mem_id,write_mem_id,mem2reg_id,write_reg_id};
+    wire fence_type_id;
+    wire [8:0]control_flow_id;
+    assign control_flow_id = {fence_type_id,jalr_id,auipc_id,branch_id,ALU_src_id,read_mem_id,write_mem_id,mem2reg_id,write_reg_id};
     
     wire [`RS2_WIDTH - 1:0] rs2_id;
     wire [`RS1_WIDTH - 1:0] rs1_id;
@@ -98,6 +105,10 @@ module riscv_core(
     wire [`ALU_INS_TYPE_WIDTH - 1:0] alu_optype_id;
     wire [`ALU_OP_WIDTH - 1:0] alu_control_id;
     
+    wire allow_in_ex;
+    wire valid_id;
+    wire ready_go_id;
+    
     //excution signals
     wire [`BUS_WIDTH - 1:0]pc_ex;
     wire jalr_ex;
@@ -106,6 +117,7 @@ module riscv_core(
     wire ALU_src_ex;
     wire flush_ex;
     wire csr_type_ex;
+    wire fence_type_ex;
     wire [3:0]control_flow_ex;
     wire [`BUS_WIDTH - 1:0]pc_branch_addr_ex;
     wire [`DATA_WIDTH - 1:0] imm_ex;
@@ -137,6 +149,10 @@ module riscv_core(
     wire lui_type_ex;
     assign lui_type_ex = jalr_ex & (~ branch_ex );
     
+    wire allow_in_mem;
+    wire valid_ex;
+    wire ready_go_ex;
+    
     
     wire [`DATA_WIDTH - 1:0] csr2clint_data;   // clint?????????????
     wire [`DATA_WIDTH - 1:0] clint_csr_mtvec;   // mtvec
@@ -160,7 +176,13 @@ module riscv_core(
     wire [`RD_WIDTH - 1:0] rd_mem;
     wire [`DATA_WIDTH - 1 :0]ram_rdata_mem;
     wire [`DATA_WIDTH - 1 :0]ram_address_mem;
+    wire fence_type_mem;
 
+    wire allow_in_wb;
+    wire valid_mem;
+    wire ready_go_mem;
+        
+        
     //write back signals
     wire [`RD_WIDTH - 1:0]rd_wb;
     wire [`DATA_WIDTH - 1:0]wb_data_wb;
@@ -170,22 +192,39 @@ module riscv_core(
     wire [`DATA_WIDTH - 1 :0]ram_rdata_wb; 
     wire mem2reg_wb;
     wire write_reg_wb;
-
+    //to next pipe
+    wire allow_in_regfile;
+    //processing
+    wire valid_wb;
+    wire ready_go_wb;
+    wire fence_type_wb;
     
+    wire fence_flush;
+    assign fence_flush = fence_type_ex | fence_type_mem;
     wire hold_if;
     wire hold_id;
-    //no hold signal for id
-    assign hold_if = stall_pipe;
-    assign hold_id = stall_pipe;
+    wire hold_ex;
+    assign hold_if = 1'b0;
     assign pc_hold = stall_pipe;
-    wire allow_in_if;
-    wire ready_go_pre;
-    wire valid_pre;
+    assign hold_id = stall_pipe;
+    assign hold_ex = pc_jump & ram_req;
+    //no hold signal for if
+    //because pc_hold = hold_if
+        
+    //turn to not valid
+    //branch itself equals a type of flush operation
+    assign flush_if = fence_flush;
+    //turn to not valid
+    assign flush_id = branch_res | clint_hold_flag | fence_flush;
+    //turn to nop
+    assign flush_ex = branch_res | clint_hold_flag | stall_pipe | fence_flush ;
+
     // regs 
     pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
         .branch_addr(jump_addr),
         .jump(pc_jump),
         .hold(pc_hold),
+        .fence(fence_flush),
         .mem_addr_ok(rom_addr_ok),
         .rom_req(rom_req),
         .pc_if(pc_if),
@@ -195,12 +234,9 @@ module riscv_core(
         .valid_pre(valid_pre)
     );
     
-    assign pc_jump = branch_res | clint_hold_flag;
+    assign pc_jump = branch_res | clint_hold_flag | fence_type_wb;
     assign jump_addr = (clint_hold_flag)?32'h1C090000:pc_branch_addr_ex;
 
-    wire allow_in_id;
-    wire ready_go_if;
-    wire valid_if;
     pre_if pre_if_inst(
         .clk(clk),
         .rst_n(rst_n),
@@ -215,21 +251,11 @@ module riscv_core(
         .valid_pre(valid_pre),
         .ready_go_pre(ready_go_pre),
         .allow_in_id(allow_in_id),
-        .valid_o(valid_if),
+        .valid_if(valid_if),
         .ready_go_if(ready_go_if)
     );
     
-    
-    //turn to not valid
-    assign flush_if = branch_res | clint_hold_flag;
-    //turn to not valid
-    assign flush_id = branch_res | clint_hold_flag;
-    //turn to nop
-    assign flush_ex = branch_res | clint_hold_flag | stall_pipe ;
- 
-    wire allow_in_ex;
-    wire valid_id;
-    wire ready_go_id;
+
     
     // regs
     if_id if_id_inst(
@@ -265,6 +291,7 @@ module riscv_core(
         .auipc(auipc_id),
         .jalr(jalr_id),
         .csr_type(csr_type_id),
+        .fence_type(fence_type_id),
         .ins_opcode(ins_opcode_id),
         .ins_func7(ins_func7_id),
         // ins_func6 unused, to be used in the future
@@ -285,12 +312,6 @@ module riscv_core(
         .alu_operation(alu_control_id)
 //        .alu_mask(rs2_mask)
     );
-    
-    //to next pipe
-    wire allow_in_regfile;
-    //processing
-    wire valid_wb;
-    wire ready_go_wb;
     
     //clock for WB.
     //pure logic for id
@@ -339,15 +360,11 @@ module riscv_core(
     assign rs1_data_id = rs1_data_reg;
     assign rs2_data_id = rs2_data_reg;
     
-    wire allow_in_mem;
-    wire valid_ex;
-    wire ready_go_ex;
-        
     //regs
     id_ex id_ex_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .hold(1'b0),
+        .hold(hold_ex),
         .flush(flush_ex),
         .rs2_data_id(rs2_data_id),
         .rs1_data_id(rs1_data_id),
@@ -368,6 +385,8 @@ module riscv_core(
         .auipc_ex(auipc_ex),
         .jalr_ex(jalr_ex),
         .control_flow_ex(control_flow_ex),
+        .fence_type_id(fence_type_id),
+        .fence_type_ex(fence_type_ex),
         .csr_type_id(csr_type_id),
         .csr_type_ex(csr_type_ex),
         .pc_id(pc_id),
@@ -559,15 +578,15 @@ module riscv_core(
         .muxout(mem_address_ex)
     );
     
-    wire allow_in_wb;
-    wire valid_mem;
-    wire ready_go_mem;
-        
+    wire flush_mem;
+    assign flush_mem = 1'b0;
+    //when flush,next ins becomes nop
+    //when cancel,this ins becomes nop 
     //regs
     ex_mem ex_mem_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .flush(1'b0),
+        .flush(flush_mem),
         .hold(1'b0),
         .mem_addr_ok(ram_addr_ok),
         .ram_req(ram_req),
@@ -583,6 +602,8 @@ module riscv_core(
         .rd_mem(rd_mem),
         .ins_func3_i(ins_func3_ex),
         .ins_func3_o(ins_func3_mem),
+        .fence_type_ex(fence_type_ex),
+        .fence_type_mem(fence_type_mem),
         .allow_in_mem(allow_in_mem),
         .valid_ex(valid_ex),
         .ready_go_ex(ready_go_ex),
@@ -654,7 +675,7 @@ module riscv_core(
     
     //pure logic
     assign ram_we = write_mem_mem;
-    assign ram_address =  {`BUS_WIDTH{read_mem_mem | write_mem_mem}} & ram_address_mem;
+    assign ram_address = ram_address_mem;
     assign ram_rdata_mem = ram_rdata;
     
     //regs       
@@ -668,6 +689,8 @@ module riscv_core(
         .mem_read_data_o(ram_rdata_wb),
         .mem_address_i(ram_address_mem),
         .mem_address_o(ram_address_wb),
+        .fence_type_mem(fence_type_mem),
+        .fence_type_wb(fence_type_wb),
         //read_data from memory
         .control_flow_mem(control_flow_mem),
         .write_reg(write_reg_wb),

@@ -22,34 +22,48 @@
 `include "include.v"
 
 module soc_top(
-    input clk,
-    input rst_n
-//    remain todo
-//    output reg over,      
-//    output reg succ,      
+    input CLK,
+    input ck_rst,
+    input UART_RXD,
+    output UART_TXD,
+    output [3:0]LED,
+    output RGB0_Red,
+    output RGB0_Green,
+    output RGB0_Blue,
+    output RGB1_Red,
+    output RGB1_Green,
+    output RGB1_Blue,
+    output RGB2_Red,
+    output RGB2_Green,
+    output RGB2_Blue,
+    output RGB3_Red,
+    output RGB3_Green,
+    output RGB3_Blue,
+    output reg over,
+    output reg succ,
 
-//    output wire halted_ind, 
-
-//    input wire uart_debug_pin, 
-
-//    output wire uart_tx_pin, 
-//    input wire uart_rx_pin, 
-//    inout wire[1:0] gpio,   
-
-//    input wire jtag_TCK,     
-//    input wire jtag_TMS,    
-//    input wire jtag_TDI,    
-//    output wire jtag_TDO,
-
-//    input wire spi_miso,    
-//    output wire spi_mosi,   
-//    output wire spi_ss,    
-//    output wire spi_clk   
+    input uart_debug_pin,
+    output wire halted_ind,
+    inout wire[1:0] gpio
     );
     
-    wire [`BUS_WIDTH - 1:0]bus_axi_addr;
-    wire [`DATA_WIDTH - 1:0]bus_axi_data_out;
-    wire [`DATA_WIDTH - 1:0]bus_axi_data_in;
+    wire clk;
+    wire rst_n;
+    assign clk = CLK;
+    assign rst_n = ck_rst;
+//    remain todo
+
+    
+    wire uart_tx_pin;
+    assign uart_tx_pin = UART_TXD;
+    wire uart_rx_pin;
+    assign uart_rx_pin = UART_RXD; 
+    
+    
+    
+//    wire [`BUS_WIDTH - 1:0]bus_axi_addr;
+//    wire [`DATA_WIDTH - 1:0]bus_axi_data_out;
+//    wire [`DATA_WIDTH - 1:0]bus_axi_data_in;
     
     wire [`BUS_WIDTH - 1:0]rom_address;
     wire [`DATA_WIDTH - 1:0]rom_rdata;
@@ -59,33 +73,33 @@ module soc_top(
     wire [`DATA_WIDTH - 1:0]ram_wdata;
     wire [`RAM_MASK_WIDTH - 1:0]ram_wmask;
     wire ram_we;
-    wire [`DATA_WIDTH - 1  :0]ram_din_a;
-    wire [`DATA_WIDTH - 1  :0]ram_din_b;
-    wire [`BUS_WIDTH - 1  :0]ram_addr_a;
-    wire [`BUS_WIDTH - 1  :0]ram_addr_b;
-    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_a;
-    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_b;
-    wire [`DATA_WIDTH-1:0]ram_dout_a;
-    wire [`DATA_WIDTH-1:0]ram_dout_b;
-    wire    ram_we_a;
-    wire    ram_we_b;
+//    wire [`DATA_WIDTH - 1  :0]ram_din_a;
+//    wire [`DATA_WIDTH - 1  :0]ram_din_b;
+//    wire [`BUS_WIDTH - 1  :0]ram_addr_a;
+//    wire [`BUS_WIDTH - 1  :0]ram_addr_b;
+//    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_a;
+//    wire [`RAM_MASK_WIDTH - 1:0]ram_wem_b;
+//    wire [`DATA_WIDTH-1:0]ram_dout_a;
+//    wire [`DATA_WIDTH-1:0]ram_dout_b;
+//    wire    ram_we_a;
+//    wire    ram_we_b;
     wire    rom_req;
     wire    ram_req;
     wire    mem_req;
-    assign ram_we_a = 1'b0;
-    assign ram_we_b = ram_we;
-    assign ram_din_a = 32'd0;
-    assign ram_din_b = ram_wdata;
-    assign ram_addr_a = {2'b00,rom_address[`BUS_WIDTH - 1:2]};
-    assign ram_addr_b = {2'b00,ram_address[`BUS_WIDTH - 1:2]};
-    assign ram_we_a = 1'b0;
-    assign ram_we_b = ram_we;
-    assign ram_wem_a = 4'b0000;
-    assign ram_wem_b = ram_wmask;
-    assign rom_rdata = (rom_req)?ram_dout_a:`INST_NOP;
-    //Ҫ���ͷ�һ��cycle
-    //assign ram_rdata = (ram_req)?ram_dout_b:32'd0;
-    assign ram_rdata = ram_dout_b;  
+//    assign ram_we_a = 1'b0;
+//    assign ram_we_b = ram_we;
+//    assign ram_din_a = 32'd0;
+//    assign ram_din_b = ram_wdata;
+//    assign ram_addr_a = {2'b00,rom_address[`BUS_WIDTH - 1:2]};
+//    assign ram_addr_b = {2'b00,ram_address[`BUS_WIDTH - 1:2]};
+//    assign ram_we_a = 1'b0;
+//    assign ram_we_b = ram_we;
+//    assign ram_wem_a = 4'b0000;
+//    assign ram_wem_b = ram_wmask;
+//    assign rom_rdata = (rom_req)?ram_dout_a:`INST_NOP;
+//    //Ҫ���ͷ�һ��cycle
+//    //assign ram_rdata = (ram_req)?ram_dout_b:32'd0;
+//    assign ram_rdata = ram_dout_b;  
     wire rom_addr_ok;
     wire rom_data_ok;
     wire ram_addr_ok;

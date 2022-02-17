@@ -17,7 +17,7 @@ def list_binfiles(path):
 
 # 主函数
 def main():
-    bin_files = list_binfiles(r'../tests/isa/generated')
+    bin_files = list_binfiles(r'../../tinyriscv/tests/isa/generated')
 
     anyfail = False
 

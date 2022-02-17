@@ -51,8 +51,9 @@ module sirv_sim_ram
 
 
     reg read_data_ok;
+    reg write_data_ok;
     assign mem_addr_ok = cs & rst_n;
-    assign mem_data_ok = we | read_data_ok;
+    assign mem_data_ok = write_data_ok | read_data_ok;
     
     assign ren = cs & (~we);
     assign wen = ({MW{cs & we}} & wem);
@@ -80,6 +81,20 @@ module sirv_sim_ram
             read_data_ok <= 1'b0;
         end
     end
+    
+    always @(posedge clk)
+    begin
+        if(~rst_n)begin
+            write_data_ok <= 1'b0;
+        end
+        else if (cs & we)begin
+            write_data_ok <= 1'b1;
+        end
+        else begin
+            write_data_ok <= 1'b0;
+        end
+    end
+    
     generate
       for (i = 0; i < MW; i = i+1) begin :mem
         if((8*i+8) > DW ) begin: last

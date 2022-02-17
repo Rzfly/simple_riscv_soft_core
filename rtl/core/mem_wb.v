@@ -19,6 +19,8 @@ module mem_wb(
     output [`RD_WIDTH - 1:0]rd_wb,
     input [2:0]ins_func3_i,
     output [2:0]ins_func3_o,
+    input fence_type_mem,
+    output  fence_type_wb,
     //to pre pipe
     output allow_in_wb,
     //processing
@@ -40,6 +42,7 @@ module mem_wb(
     reg [1:0]control_flow;
     reg [`RD_WIDTH - 1:0]rd;
     reg [2:0]ins_func3;
+    reg fence_type;
 
     reg valid;
     reg ram_data_valid;
@@ -49,6 +52,7 @@ module mem_wb(
     wire hold_pipe;
     wire pipe_ready;
     wire ram_req_type;
+    
     assign ram_req_type = mem2reg;
     assign pipe_ready = ((~ram_req_type) | (mem_data_ok & ram_req_type));
     assign hold_pipe = (~allow_in_regfile) | hold;
@@ -56,6 +60,7 @@ module mem_wb(
     assign valid_wb = valid;    // decide pc pipe
     assign mem_read_data_o = (ram_data_valid)?mem_read_data:mem_read_data_i;
     // note there can be one more state ,but emited
+    // write mem instruction becomes a bubble here
     assign ready_go_wb = (state[3]) || (pipe_ready & ( state[2] | state[1]));
     wire data_allow_in;
     //note when state[0], allow_in_wb = 0 but data_allow_in = 1
@@ -68,8 +73,9 @@ module mem_wb(
     assign mem_address_o = mem_address[`BUS_WIDTH - 1:0];
     assign ins_func3_o = ins_func3;
     assign mem2reg = control_flow[1] & valid_wb;
+    assign fence_type_wb = fence_type & valid_wb;
     //valid for flush£¬ not for write valid
-    assign write_reg = control_flow[0] & pipe_ready;
+    assign write_reg = control_flow[0] & pipe_ready & valid_wb;
     assign rd_wb = rd;
     
 
@@ -88,7 +94,7 @@ module mem_wb(
             // hold!because readygo = 0
             // next stage get valid = 0 because readygo = 0
             state_leap:begin
-                if( mem_data_ok & ram_req_type )begin
+                if( mem_data_ok && ram_req_type )begin
                     next_state = state_empty;
                 end
                 else begin
@@ -96,13 +102,13 @@ module mem_wb(
                 end
             end
             state_empty:begin
-                if( pipe_ready & hold_pipe & data_allow_in)begin
+                if( pipe_ready && hold_pipe  && valid_wb && !(ram_data_valid))begin
                     next_state = state_full;
                 end
-                else if(pipe_ready & data_allow_in & (~flush)) begin
+                else if(pipe_ready && data_allow_in  && valid_wb && !(flush)) begin
                     next_state = state_pipe;
                 end
-                else if( ram_req_type & (~mem_data_ok) & flush)begin
+                else if( ram_req_type && !(mem_data_ok) && flush  && valid_wb)begin
                     next_state = state_leap;
                 end
                 else begin
@@ -113,8 +119,9 @@ module mem_wb(
                 if (!pipe_ready)begin
                     next_state = state_empty;
                 end
-                else if( pipe_ready & hold_pipe & data_allow_in)begin
-                    next_state = state_full;
+//                else if( pipe_ready & hold_pipe & data_allow_in)begin
+                else if( pipe_ready && hold_pipe && !(ram_data_valid))begin
+                     next_state = state_full;
                 end
                 else begin
                     next_state = state_pipe;
@@ -162,12 +169,14 @@ module mem_wb(
             control_flow <=  0;
             rd <=  0;
             ins_func3 <=  0;
+            fence_type <= 0;
         end
         else if(pipe_valid && allow_in_wb)begin
             mem_address <= mem_address_i;
             control_flow <= control_flow_mem;
             rd <= rd_mem;
             ins_func3 <= ins_func3_i;
+            fence_type <= fence_type_mem;
         end
     end
     

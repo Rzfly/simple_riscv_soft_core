@@ -29,6 +29,7 @@ module pc_gen #(
     input [`BUS_WIDTH - 1:0]branch_addr,
     input jump,
     input hold,
+    input fence,
     input mem_addr_ok,
     //input mem_ok,
     output rom_req,
@@ -40,15 +41,22 @@ module pc_gen #(
     output valid_pre
     );
 
-    wire hold_pipe;
+//    wire hold_pipe;
+    wire stop_req;
+    assign stop_req = fence || hold || !allow_in_if;
     wire [`BUS_WIDTH - 1:0] pc_add;
-    assign pc_add = pc_if + {`BUS_WIDTH'd4};
-    assign hold_pipe = ~allow_in_if | hold;
-    assign next_pc = (hold_pipe)?pc_if:(jump)?branch_addr:pc_add;
+    wire [`BUS_WIDTH - 1:0] jump_addr;
+    assign jump_addr = branch_addr;
+//    assign jump_addr = (fence)?pc_add:branch_addr;
+    assign pc_add = pc_if  + {`BUS_WIDTH'd4};
+    
+//    assign hold_pipe = ~allow_in_if | hold;
+    assign next_pc = (stop_req)?pc_if:(jump)?jump_addr:pc_add;
+    /// branch cal is not compeleted, so and (~hold)
     assign ready_go_pre = rom_req & mem_addr_ok;
     //if no ready go, next stage set this to zero
     assign valid_pre = mem_addr_ok;
-    assign rom_req = allow_in_if & (~hold);
+    assign rom_req = !stop_req;
     
     
 //    always@(posedge clk)

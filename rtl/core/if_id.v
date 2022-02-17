@@ -47,17 +47,17 @@ module if_id(
     reg valid;
     reg [`DATA_WIDTH - 1:0]instruction;
     wire pipe_valid;
-    wire hold_pipe;
-    assign hold_pipe = ~allow_in_ex | hold;
+//    wire hold_pipe;
+//    assign hold_pipe = ~allow_in_ex ;
     assign pipe_valid = valid_if & ready_go_if & (~flush);
     assign pc_id = pc;
     assign valid_id = valid;    // decide pc pipe
     assign instruction_id = instruction;
-    assign ready_go_id = 1'b1;
+    assign ready_go_id = !hold;
     //if hold, 0 or 1 || 0;
     //or, store || pipe
  
-    assign allow_in_id = !(valid_id) || ready_go_id & (~hold_pipe);
+    assign allow_in_id = !(valid_id) || ready_go_id & (allow_in_ex);
 
 
     always@(posedge clk or negedge rst_n)

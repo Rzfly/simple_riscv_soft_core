@@ -62,6 +62,7 @@
 `define UJ_TYPE      7'b1101111
 `define AUIPC_TYPE   7'b0010111
 `define CSR_TYPE     7'b1110011
+`define FENCE_TYPE   7'b0001111
 
 `define ALU_CONTROL_R_TYPE      4'b0000
 `define ALU_CONTROL_I_TYPE_LOAD 4'b0001

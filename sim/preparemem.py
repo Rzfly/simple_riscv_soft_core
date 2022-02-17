@@ -13,6 +13,7 @@ SB_TYPE      = '1100111'
 U_TYPE       = '0110111'
 UJ_TYPE      = '1101111'
 AUIPC_TYPE   = '0010111'
+FENCE_TYPE   = '0001111'
 
 def decode(hexin):
 
@@ -25,8 +26,8 @@ def decode(hexin):
     bits = ""
     for i in range (8):
         bits = bits + hex2bin(hexin[i])
-    print(bits)
-    print(len(bits))
+    #print(bits)
+    #print(len(bits))
 
     code = decode_type(bits)
     
@@ -149,25 +150,32 @@ def decode_type(bits):
     elif(opcode == AUIPC_TYPE):
         code = "AUIPC_TYPE"
         ins = "AUIPC"
+    elif(opcode == FENCE_TYPE):
+        code = "FENCE_TYPE"
+        if(func3 == '000'):
+            ins = "FENCE"
+        else:
+            ins = "FENCE_i"
     else:
         code = "UNDEFINED"
     
     if (code == "I_TYPE_ALUI"):
         imm = count_imm(imm12);
-        code = code + "  " + bits + "  " + ins + "  imm: " + str(imm) + "  rs1: " + rs1 + "  rd: " + rd + "  func3: " + func3 + "\n"
-    else
-        code = code + "  " + bits + "  " + ins + "  rs2: " + rs2 + "  rs1: " + rs1 + "  rd: " + rd + "  func3: " + func3 + "\n"
+        code = code + "  " + bits + "  " + ins + "  rs1: " + rs1 + "  imm: " + str(imm) +  "  rd: " + rd + "  func3: " + func3 + "\n"
+    else:
+        code = code + "  " + bits + "  " + ins + "  rs1: " + rs1 + "  rs2: " + rs2 +  "  rd: " + rd + "  func3: " + func3 + "\n"
     
     return code
 
 def count_imm(bits):
     
-    print(len(bits));
+    #print(len(bits));
+    #print(bits);
     count = 0;
-    for i in range(bits):
-        if(bits[i] == '0')
+    for i in range(len(bits)):
+        if(bits[i] == '0'):
             count = count*2
-        else
+        else:
             count = count*2 + 1
     return count
 
@@ -215,7 +223,7 @@ def main():
     #print(sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2])
 
     # 1.将bin文件转成mem文件
-    cmd = r'python ../tools/BinToMem_CLI.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
+    cmd = r'python ./BinToMem_CLI.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
     print(cmd)
     f = os.popen(cmd)
     f.close()

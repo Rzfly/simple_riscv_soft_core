@@ -18,13 +18,13 @@ module regfile(
 );
 
     wire write_enable;
-    assign write_enable = we & valid_wb & ready_go_wb;
+    assign write_enable = we & valid_wb & ready_go_wb & (|wa);
     wire forward_rs1;
     assign forward_rs1 = (wa == rs1)?write_enable:1'b0;
     wire forward_rs2;
     assign forward_rs2 = (wa == rs2)?write_enable:1'b0;
     
-	reg [`DATA_WIDTH - 1:0] rf[31:0];
+	reg [`DATA_WIDTH - 1:0] rf[0:31];
     integer i;
 //    //��֤����д���?
 //	always @(negedge clk) begin
@@ -43,8 +43,8 @@ module regfile(
 			 rf[wa] <= wd;
 		end
 	end
-	wire rd1_data_temp;
-	wire rd2_data_temp;
+	wire [`DATA_WIDTH - 1:0] rd1_data_temp;
+	wire [`DATA_WIDTH - 1:0] rd2_data_temp;
 	
 	always@(posedge clk or negedge rst_n)begin
 	   if(~rst_n)begin

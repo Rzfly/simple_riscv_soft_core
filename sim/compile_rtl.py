@@ -4,16 +4,35 @@ import subprocess
 import sys
 import os
 
+def listdir(path, list_name):  #传入存储的list
+    for file in os.listdir(path):  
+        file_path = os.path.join(path, file)  
+        if os.path.isdir(file_path):  
+            listdir(file_path, list_name)  
+        else:  
+            list_name.append(file_path)
+    return list_name
+
+def addrtl(cmd, rtl_path):  #传入存储的list
+    #print(rtl_path)
+    rtl_list = [];
+    rtl_list = listdir(rtl_path,rtl_list)
+    #print(len(rtl_list))
+    for inst in rtl_list:
+        if(inst[-1] == 'v'):
+            print(inst)
+            cmd.append(inst)
+    return cmd
 
 # 主函数
 def main():
     rtl_dir = sys.argv[1]
 
-    if rtl_dir != r'..':
-        tb_file = r'/tb/compliance_test/tinyriscv_soc_tb.v'
-    else:
-        tb_file = r'/tb/tinyriscv_soc_tb.v'
+    tb_file = r'/tb/riscv_core_sim.v'
 
+    #print('rtl_dir')
+    #print(rtl_dir + r'/rtl')
+    #test = input("now input!")
     # iverilog程序
     iverilog_cmd = ['iverilog']
     # 顶层模块
@@ -25,49 +44,21 @@ def main():
     # 宏定义，仿真输出文件
     iverilog_cmd += ['-D', r'OUTPUT="signature.output"']
     # testbench文件
-    iverilog_cmd.append(rtl_dir + tb_file)
     # ../rtl/core
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/clint.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/csr_reg.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/ctrl.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/defines.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/div.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/ex.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/id.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/id_ex.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/if_id.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/pc_reg.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/regs.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/rib.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/core/tinyriscv.v')
-    # ../rtl/perips
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/ram.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/rom.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/timer.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/uart.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/gpio.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/perips/spi.v')
-    # ../rtl/debug
-    iverilog_cmd.append(rtl_dir + r'/rtl/debug/jtag_dm.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/debug/jtag_driver.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/debug/jtag_top.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/debug/uart_debug.v')
-    # ../rtl/soc
-    iverilog_cmd.append(rtl_dir + r'/rtl/soc/tinyriscv_soc_top.v')
-    # ../rtl/utils
-    iverilog_cmd.append(rtl_dir + r'/rtl/utils/full_handshake_rx.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/utils/full_handshake_tx.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/utils/gen_buf.v')
-    iverilog_cmd.append(rtl_dir + r'/rtl/utils/gen_dff.v')
-
-    print(tb_file)
-    print(rtl_dir)
-    test = input("");
-    print(iverilog_cmd)
-    test = input("");
+    iverilog_cmd = addrtl(iverilog_cmd,rtl_dir + r'/rtl/')
+    #iverilog_cmd+= ['-y', rtl_dir + r'/rtl/']
+    iverilog_cmd.append(rtl_dir + tb_file)
+    
+    #print(iverilog_cmd)
+    
     # 编译
     process = subprocess.Popen(iverilog_cmd)
     process.wait(timeout=5)
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+# -*- coding: utf-8 -*-  
+
+      

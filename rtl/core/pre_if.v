@@ -40,7 +40,7 @@ module pre_if(
     //to next pipe
     input allow_in_id,
     //processing
-    output wire valid_o,
+    output valid_if,
     output ready_go_if
     );
     
@@ -66,9 +66,9 @@ module pre_if(
     assign ready_go_if = (state[3]) || (mem_ready & ( state[2] | state[1]));
     wire data_allow_in;
     //note when state[0], allow_in_wb = 0 but data_allow_in = 1
-    assign data_allow_in = (!(valid | instruction_valid)) || (ready_go_pre) & (~hold_pipe);
+    assign data_allow_in = (!(valid | instruction_valid)) || (ready_go_if) & (~hold_pipe);
     assign allow_in_if = next_state[1] || next_state[2];
-    assign valid_o = valid;    // decide pc pipe
+    assign valid_if = valid;    // decide pc pipe
 
 //    flush  allow hold hold pipe
 //      1      0    0       1
@@ -114,13 +114,13 @@ module pre_if(
                 end
             end
             state_empty:begin
-                if( mem_ready & hold_pipe & data_allow_in)begin
+                if( mem_ready && valid_if && hold_pipe && !(instruction_valid))begin
                     next_state = state_full;
                 end
-                else if(mem_ready & data_allow_in & (~flush)) begin
+                else if(mem_ready && valid_if && data_allow_in && !(flush)) begin
                     next_state = state_pipe;
                 end
-                else if( (~mem_data_ok) & flush)begin
+                else if( !(mem_ready) && valid_if && flush )begin
                     next_state = state_leap;
                 end
                 else begin
@@ -131,7 +131,9 @@ module pre_if(
                 if (!mem_ready)begin
                     next_state = state_empty;
                 end
-                else if( mem_ready & hold_pipe & data_allow_in)begin
+//                else if( mem_ready & hold_pipe & data_allow_in)begin
+                //note : nop also can bu hold
+                else if( mem_ready && hold_pipe && !(instruction_valid))begin
                     next_state = state_full;
                 end
                 else begin

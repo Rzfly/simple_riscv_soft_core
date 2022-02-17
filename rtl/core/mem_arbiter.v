@@ -67,10 +67,10 @@ module mem_arbiter(
     always@(*)begin
         case(state)
             state_idle:begin
-                if( mem_addr_ok & ram_req)begin
+                if( mem_addr_ok & ram_req & (~mem_data_ok))begin
                     next_state <= state_ram;
                 end
-                else if( mem_addr_ok & rom_req) begin
+                else if( mem_addr_ok & rom_req & (~mem_data_ok)) begin
                     next_state <= state_rom;
                 end
                 else begin
@@ -78,10 +78,12 @@ module mem_arbiter(
                 end
             end
             state_rom:begin
-                if( mem_data_ok & mem_addr_ok & ram_req) begin
+                //note:mem_data_ok = rom_data_ok
+                //mem_addr_ok & ram_req may be write,  maybe read
+                if( mem_data_ok & mem_addr_ok & ram_req ) begin
                     next_state <= state_ram;
                 end
-                else if(mem_data_ok & mem_addr_ok & rom_req) begin
+                else if(mem_data_ok & mem_addr_ok & rom_req ) begin
                     next_state <= state_rom;
                 end
                 else if(mem_data_ok) begin
@@ -122,7 +124,7 @@ module mem_arbiter(
     assign ram_addr_ok = (grant1)?mem_addr_ok:1'b0;
     assign rom_addr_ok = (grant0)?mem_addr_ok:1'b0;
     assign mem_address = (ram_req)?ram_address:rom_address;
-    assign mem_wdata = (ram_req)?ram_wdata:32'b0;
+    assign mem_wdata = (ram_req)?ram_wdata:32'd0;
     assign mem_wmask = (ram_req)?ram_wmask:{`RAM_MASK_WIDTH{1'b0}}; 
     assign mem_we = (ram_req)?ram_we:1'b0;
     assign mem_req = ram_req | rom_req;
@@ -130,8 +132,12 @@ module mem_arbiter(
     assign ram_data_ok = (state[1])?mem_data_ok:1'b0;
     assign rom_data_ok = (state[0])?mem_data_ok:1'b0;
     //rom
-    assign ram_rdata = (state[1])?mem_rdata:1'b0;
-    assign rom_rdata = (state[0])?mem_rdata:1'b0;
-    
-    
+    assign ram_rdata = (state[1])?mem_rdata:32'd0;
+    assign rom_rdata = (state[0])?mem_rdata:`INST_NOP;
+//    wire  [31:0] rom_rdata_switch;
+//    assign rom_rdata_switch =  (state[0])?mem_rdata:`INST_NOP;
+//    wire  [31:0] ram_rdata_switch;
+//    assign ram_rdata_switch =  (state[1])?mem_rdata:32'd0;
+//    assign rom_rdata = rom_rdata_switch;
+//    assign ram_rdata = ram_rdata_switch;
 endmodule
