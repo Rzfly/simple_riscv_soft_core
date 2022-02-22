@@ -14,6 +14,7 @@ U_TYPE       = '0110111'
 UJ_TYPE      = '1101111'
 AUIPC_TYPE   = '0010111'
 FENCE_TYPE   = '0001111'
+CSR_TYPE     = '1110011'
 
 def decode(hexin):
 
@@ -156,6 +157,12 @@ def decode_type(bits):
             ins = "FENCE"
         else:
             ins = "FENCE_i"
+    elif(opcode == CSR_TYPE):
+        code = "CSR_TYPE"
+        if(func3 == '000'):
+            ins = "CSR_INT_TYPE"
+        else:
+            ins = "CSR_REG_TYPE"
     else:
         code = "UNDEFINED"
     
@@ -237,7 +244,7 @@ def main():
         #print(len(line))
         #print(line)
         asm = decode(line);
-        f2.write(asm);
+        f2.write(line + asm);
         if(len(line) == 0):
             f1.close()
             break

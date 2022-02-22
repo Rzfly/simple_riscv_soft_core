@@ -6,6 +6,8 @@ module id_ex(
     input rst_n,
     input flush,
     input hold,
+    input mem_addr_ok,
+    output ram_req,
 	input [`DATA_WIDTH - 1:0]rs2_data_id,
     output [`DATA_WIDTH - 1:0]rs2_data_ex,
 	input [`DATA_WIDTH - 1:0]rs1_data_id,
@@ -14,6 +16,8 @@ module id_ex(
     output [`DATA_WIDTH - 1:0] imm_ex,
     input [`DATA_WIDTH - 1:0]instruction_id,
     output [`DATA_WIDTH - 1:0]instruction_ex,
+    input [`DATA_WIDTH - 1:0]csr_write_data_id,
+    output [`DATA_WIDTH - 1:0]csr_write_data_ex,
     input [`RS2_WIDTH - 1:0] rs2_id,
     output [`RS2_WIDTH - 1:0] rs2_ex,
     input [`RS1_WIDTH - 1:0] rs1_id,
@@ -24,6 +28,8 @@ module id_ex(
     output [`ALU_OP_WIDTH - 1:0]alu_control_ex,
     input [`DATA_WIDTH - 1:0]pc_id,
     output [`DATA_WIDTH - 1:0]pc_ex,
+//    input [`BUS_WIDTH - 1:0] ram_address_ex,
+//    output [`BUS_WIDTH - 1:0] ram_address,
     input csr_type_id,
     output csr_type_ex,
     input [8 :0]control_flow_id,
@@ -48,6 +54,7 @@ module id_ex(
 	
     reg [`DATA_WIDTH - 1:0]rs2_data;
     reg [`DATA_WIDTH - 1:0]rs1_data;
+    reg [`DATA_WIDTH - 1:0]csr_write_data;
     reg [`DATA_WIDTH - 1:0]imm;
     reg [`DATA_WIDTH - 1:0]instruction;
     reg [`ALU_OP_WIDTH - 1:0]alu_control;
@@ -79,24 +86,33 @@ module id_ex(
     assign fence_type_ex = fence_type & valid_ex;
     assign alu_control_ex = alu_control & {`ALU_OP_WIDTH{valid_ex}};
     assign control_flow_ex = control_flow & {4{valid_ex}};
+    assign csr_write_data_ex = csr_write_data;
     
     reg valid;
     wire pipe_valid;
 //    wire hold_pipe;
 //    assign hold_pipe = ~allow_in_mem | ;
-    wire ram_req;
-
+    wire ram_req_type;
+    wire mem_read;
+    wire mem_write;
+    assign mem_read = control_flow_ex[3];
+    assign mem_write = control_flow_ex[2];
+    assign ram_req_type =  (mem_read | mem_write);
+    
     assign pipe_valid = valid_id & ready_go_id & (~flush);
     assign valid_ex = valid;    // decide pc pipe
+    assign ready_go_ex = ((ram_req & mem_addr_ok) || !ram_req_type )&& (!hold);
+    assign ram_req =  allow_in_mem & (~hold) & ram_req_type & valid_ex;
+    assign allow_in_ex = !(valid_ex) || ready_go_ex & allow_in_mem;
 //    assign ram_req = pipe_valid & allow_in_mem & (~hold) & ();
 //    assign ready_go_ex = ram_req & mem_addr_ok;
+//    assign ready_go_ex = ram_req & mem_addr_ok;
+    //related with valid
+    
     //generate nop
-    assign ready_go_ex = !hold;
     //if hold, 0 or 1 || 0;
     //or, store || pipe
-    assign allow_in_ex = !(valid_ex) || ready_go_ex & allow_in_mem;
-     
-  always@(posedge clk or negedge rst_n)
+  always@(posedge clk)
     begin
         if ( ~rst_n )
         begin;
@@ -128,6 +144,7 @@ module id_ex(
             pc <= 0;
             instruction <= 0;
             fence_type  <= 0;
+            csr_write_data <= 0;
         end
         else if(pipe_valid & allow_in_ex)begin
             pc <= pc_id;
@@ -146,6 +163,7 @@ module id_ex(
             csr_type <= csr_type_id;
             fence_type  <= fence_type_id;
             instruction <= instruction_id;
+            csr_write_data <= csr_write_data_id;
         end
     end
     

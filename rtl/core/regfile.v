@@ -46,7 +46,7 @@ module regfile(
 	wire [`DATA_WIDTH - 1:0] rd1_data_temp;
 	wire [`DATA_WIDTH - 1:0] rd2_data_temp;
 	
-	always@(posedge clk or negedge rst_n)begin
+	always@(posedge clk)begin
 	   if(~rst_n)begin
 	       allow_in_regfile <= 1'b0;
 	   end

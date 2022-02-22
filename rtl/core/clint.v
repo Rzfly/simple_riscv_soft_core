@@ -109,6 +109,7 @@ module clint(
                     if (int_state == S_INT_SYNC_ASSERT) begin
                         csr_state <= S_CSR_MEPC;
                         // 在中断处理函数里会将中断返回地址加4
+                        // 作者偷懒了 在中断和异常的返回没有做区分
                         if (jump_flag_i) begin
                             inst_addr <= jump_addr_i - 4'h4;
                         end else begin
@@ -188,7 +189,8 @@ module clint(
                 S_CSR_MSTATUS: begin
                     we_o <=   1'b1;
                     waddr_o <= {20'h0, `CSR_MSTATUS};
-                    data_o <= {csr_mstatus[31:4], 1'b0, csr_mstatus[2:0]};
+                    data_o <= {csr_mstatus[31:8],csr_mstatus[3],csr_mstatus[6:4], 1'b0, csr_mstatus[2:0]};
+//                    data_o <= {csr_mstatus[31:4], 1'b0, csr_mstatus[2:0]};
                 end
                 // 中断返回
                 S_CSR_MSTATUS_MRET: begin

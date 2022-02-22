@@ -19,6 +19,8 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+//`define DRAM
+`define BRAM
 `define RstDisable 1
 `define RstEnable 0
 `define BUS_WIDTH  32
@@ -112,3 +114,7 @@
 `define INST_ECALL  32'h73
 `define INST_EBREAK 32'h00100073
 `define INT_NONE    8'h0
+
+`define INT_ASSERT 1'b1
+`define INT_DEASSERT 1'b0
+

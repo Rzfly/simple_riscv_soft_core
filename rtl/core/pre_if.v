@@ -91,7 +91,7 @@ module pre_if(
     // 1       0          0         hold & next_hold
         
 
-    always@(posedge clk or negedge rst_n)begin
+    always@(posedge clk)begin
        if ( ~rst_n )begin
             state <= state_empty;
         end
@@ -155,7 +155,7 @@ module pre_if(
        endcase
     end
         
-    always@(posedge clk or negedge rst_n)
+    always@(posedge clk)
     begin
         if ( ~rst_n )
         begin;
@@ -166,7 +166,7 @@ module pre_if(
         end
     end
     
-    always@(posedge clk)
+    always@(posedge clk )
     begin
         if ( ~rst_n )
         begin;
@@ -177,7 +177,7 @@ module pre_if(
         end
     end
     
-    always@(posedge clk or negedge rst_n)
+    always@(posedge clk )
     begin
         if(~rst_n)begin
             instruction_valid <=  1'b0;

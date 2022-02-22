@@ -28,7 +28,10 @@ module riscv_core_sim();
         $display("test running...");
         #40
         rst_n = `RstDisable;
-        #200
+        #100000
+        rst_n = `RstEnable;
+        #100000
+        rst_n = `RstDisable;
 
 `ifdef TEST_PROG
         wait(x26 == 32'b1)   // wait sim end, when x26 == 1
@@ -72,8 +75,8 @@ module riscv_core_sim();
 
     // read mem data
     initial begin
-        #20
-        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
+//        #20
+//        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\tinyriscv\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.sirv_duelport_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
@@ -85,10 +88,50 @@ module riscv_core_sim();
         $dumpvars(0, riscv_core_sim);
     end
     
-    
+    wire over;
+    wire succ;
+    wire halted_ind;
+    wire uart_tx_pin;
+    wire uart_rx_pin;
+    wire [1:0]gpio;
+    reg gpio_input;
+    wire gpio_output;
+    initial begin
+        gpio_input = 0;
+    end
+    always #10000 gpio_input = ~gpio_input;
+    assign gpio[1] = gpio_input;
+    assign gpio_output = gpio[0];
+//    wire jtag_TCK;
+//    wire jtag_TMS;
+//    wire jtag_TDI;
+//    wire jtag_TDO;
+    wire spi_miso;
+    wire spi_mosi;
+    wire spi_ss;
+    wire spi_clk;
+    assign spi_miso = 1'b0;
+    assign uart_rx_pin = 1'b1;
     soc_top soc_top_inst(
-        .clk(clk),
-        .rst_n(rst_n)
+        .sys_clk(clk),
+        .rst(rst_n),
+        .uart_debug_pin(1'b0),
+        .over(over),
+        .succ(succ),
+        .halted_ind(halted_ind),
+        .uart_tx_pin(uart_tx_pin),
+        .uart_rx_pin(uart_rx_pin),
+        .gpio(gpio),
+        .spi_miso(spi_miso),
+        .spi_mosi(spi_mosi),
+        .spi_ss(spi_ss),
+        .spi_clk(spi_clk)
+`ifdef TEST_JTAG
+        ,
+        .jtag_TCK(TCK),
+        .jtag_TMS(TMS),
+        .jtag_TDI(TDI),
+        .jtag_TDO(TDO)
+`endif
     );
-    
 endmodule

@@ -24,19 +24,20 @@
 module riscv_core(
     input clk,
     input rst_n,
+    input mem_hold,
     input [7:0]external_int_flag,
-    input [`DATA_WIDTH - 1: 0]rom_rdata,
     output [`BUS_WIDTH - 1:0] rom_address,
-    input [`DATA_WIDTH - 1: 0]ram_rdata,
+    output rom_req,
     input rom_addr_ok,
     input rom_data_ok,
+    input [`DATA_WIDTH - 1: 0]rom_rdata,
+    output [`BUS_WIDTH - 1:0]ram_address,
     input ram_addr_ok,
     input ram_data_ok,
     output ram_req,
-    output rom_req,
     output ram_we,
-    output [`BUS_WIDTH - 1:0]ram_address,
     output reg [`DATA_WIDTH - 1: 0]ram_wdata,
+    input [`DATA_WIDTH - 1: 0]ram_rdata,
     output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask
     );
     
@@ -121,6 +122,10 @@ module riscv_core(
     wire [3:0]control_flow_ex;
     wire [`BUS_WIDTH - 1:0]pc_branch_addr_ex;
     wire [`DATA_WIDTH - 1:0] imm_ex;
+    wire [`CsrMemAddrWIDTH - 1:0]csr_addr_ex;
+    wire [`DATA_WIDTH - 1:0]csr_read_data_ex;
+    wire [`DATA_WIDTH - 1:0]csr_write_data_ex;
+    wire csr_we_ex;
     
     wire [`DATA_WIDTH - 1:0] rs2_data_ex;
     wire [`DATA_WIDTH - 1:0] rs1_data_ex;
@@ -136,8 +141,10 @@ module riscv_core(
     wire [`DATA_WIDTH - 1:0] branch_adder_in1;
     wire [`DATA_WIDTH - 1:0] branch_adder_in2;
     wire [`DATA_WIDTH - 1:0] instruction_ex;
-
-//    wire [`DATA_WIDTH - 1:0] alu_input_num1_branch;
+    wire [`DATA_WIDTH - 1:0] ram_wdata_ex;
+    wire req_not_hit;
+    wire [`DATA_WIDTH - 1 :0]ram_address_ex;
+    wire [`DATA_WIDTH - 1 :0]mem_address_ex;
     
     wire [`ALU_OP_WIDTH - 1: 0]alu_control_ex;
 //    wire [`ALU_OP_WIDTH - 1:0] alu_operation_input;  
@@ -147,6 +154,10 @@ module riscv_core(
     wire branch_res;
     wire jal_ex;
     wire lui_type_ex;
+    wire read_mem_ex;
+    wire write_mem_ex;
+    assign read_mem_ex = control_flow_ex[3];
+    assign write_mem_ex = control_flow_ex[2];
     assign lui_type_ex = jalr_ex & (~ branch_ex );
     
     wire allow_in_mem;
@@ -171,12 +182,13 @@ module riscv_core(
     wire read_mem_mem;
     wire write_mem_mem;
     wire [1:0]control_flow_mem;
-    wire [`DATA_WIDTH - 1:0] ram_wdata_mem;
     wire [2:0]ins_func3_mem;
     wire [`RD_WIDTH - 1:0] rd_mem;
     wire [`DATA_WIDTH - 1 :0]ram_rdata_mem;
     wire [`DATA_WIDTH - 1 :0]ram_address_mem;
+    reg [`DATA_WIDTH - 1 :0]ram_rdata_mem_mask;
     wire fence_type_mem;
+    wire flush_mem;
 
     wire allow_in_wb;
     wire valid_mem;
@@ -188,7 +200,6 @@ module riscv_core(
     wire [`DATA_WIDTH - 1:0]wb_data_wb;
     wire [2:0]ins_func3_wb;
     wire [`DATA_WIDTH - 1 :0]ram_address_wb;
-    reg [`DATA_WIDTH - 1 :0]ram_rdata_wb_mask;
     wire [`DATA_WIDTH - 1 :0]ram_rdata_wb; 
     wire mem2reg_wb;
     wire write_reg_wb;
@@ -200,31 +211,30 @@ module riscv_core(
     wire fence_type_wb;
     
     wire fence_flush;
-    assign fence_flush = fence_type_ex | fence_type_mem;
+    assign fence_flush = fence_type_ex;
     wire hold_if;
     wire hold_id;
     wire hold_ex;
-    assign hold_if = 1'b0;
-    assign pc_hold = stall_pipe;
-    assign hold_id = stall_pipe;
-    assign hold_ex = pc_jump & ram_req;
-    //no hold signal for if
+    assign pc_hold = stall_pipe | mem_hold | clint_hold_flag;
+    assign hold_if = pc_hold;
+    assign hold_id = stall_pipe | clint_hold_flag;
+    assign hold_ex = 1'b0;
     //because pc_hold = hold_if
         
     //turn to not valid
     //branch itself equals a type of flush operation
     assign flush_if = fence_flush;
     //turn to not valid
-    assign flush_id = branch_res | clint_hold_flag | fence_flush;
+    assign flush_id = branch_res | fence_flush;
     //turn to nop
-    assign flush_ex = branch_res | clint_hold_flag | stall_pipe | fence_flush ;
+    assign flush_ex = branch_res | stall_pipe | fence_flush ;
 
     // regs 
     pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
         .branch_addr(jump_addr),
         .jump(pc_jump),
-        .hold(pc_hold),
-        .fence(fence_flush),
+        .hold(hold_if),
+        .flush(flush_if),
         .mem_addr_ok(rom_addr_ok),
         .rom_req(rom_req),
         .pc_if(pc_if),
@@ -234,8 +244,8 @@ module riscv_core(
         .valid_pre(valid_pre)
     );
     
-    assign pc_jump = branch_res | clint_hold_flag | fence_type_wb;
-    assign jump_addr = (clint_hold_flag)?32'h1C090000:pc_branch_addr_ex;
+    assign pc_jump = branch_res | clint_int_assert | fence_type_mem;
+    assign jump_addr = (clint_int_assert)?clint_int_pc:pc_branch_addr_ex;
 
     pre_if pre_if_inst(
         .clk(clk),
@@ -353,12 +363,53 @@ module riscv_core(
      .switch(imm_shift_id),
      .muxout(imm_id)
      );
-                
-    //????????????
+                        
+    wire [`CsrMemAddrWIDTH - 1:0]csr_addr_id;
+    wire [`DATA_WIDTH - 1:0]csr_read_data_id;
+    wire [`DATA_WIDTH - 1:0]csr_write_data_id;
+    wire csr_we_id;
+    assign csr_we_id = csr_type_id;
+    assign csr_addr_id = instruction_id[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
+    
+    csr_control csr_control_inst(
+        .fun3(ins_func3_id),
+        .wdata_imm(imm_id),
+        .wdata_rs(rs1_data_id),
+        .rdata_i(csr_read_data_id),
+        .wdata_o(csr_write_data_id)
+    );
+    
+     clint clint_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .int_flag_i(external_int_flag),
+        .inst_i(instruction_id),        
+        .inst_addr_i(pc_id),   
+        
+        .jump_flag_i(1'b0),
+        .jump_addr_i(32'd0),
+        .data_i(csr2clint_data),      
+        .csr_mtvec(clint_csr_mtvec), 
+        .csr_mepc(clint_csr_mepc),           
+        .csr_mstatus(clint_csr_mstatus),        
+        .global_int_en_i(global_int_enable),    
+        
+        .hold_flag_o(clint_hold_flag), 
+        .we_o(clint2csr_we),        
+        .waddr_o(clint2csr_waddr), 
+        .raddr_o(clint2csr_raddr),
+        .data_o(clint2csr_wdata), 
+        .int_addr_o(clint_int_pc), 
+        .int_assert_o(clint_int_assert) 
+    );
+   
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
 //    assign rs1_data_id = (lui_type_id)?32'd0:rs1_data_reg;
     assign rs1_data_id = rs1_data_reg;
     assign rs2_data_id = rs2_data_reg;
+    assign ram_wdata_ex = rs2_data_forward;
+    //pure logic
+    assign ram_we = write_mem_ex;
     
     //regs
     id_ex id_ex_inst(
@@ -366,6 +417,8 @@ module riscv_core(
         .rst_n(rst_n),
         .hold(hold_ex),
         .flush(flush_ex),
+        .mem_addr_ok(ram_addr_ok),
+        .ram_req(ram_req),
         .rs2_data_id(rs2_data_id),
         .rs1_data_id(rs1_data_id),
         .rs2_data_ex(rs2_data_ex),
@@ -374,12 +427,16 @@ module riscv_core(
         .imm_ex(imm_ex),
         .instruction_id(instruction_id),
         .instruction_ex(instruction_ex),
+        .csr_write_data_id(csr_write_data_id),
+        .csr_write_data_ex(csr_write_data_ex),
         .control_flow_id(control_flow_id),
         .rs2_id(rs2_id),
         .rs1_id(rs1_id),
         .rd_id(rd_id),
         .alu_control_id(alu_control_id),
         .alu_control_ex(alu_control_ex),
+//        .ram_address_ex(ram_address_ex),
+//        .ram_address(ram_address),
         .ALU_src_ex(ALU_src_ex),
         .branch_ex(branch_ex),
         .auipc_ex(auipc_ex),
@@ -401,6 +458,123 @@ module riscv_core(
         .valid_ex(valid_ex),
         .ready_go_ex(ready_go_ex)
     );
+        
+    assign csr_we_ex = csr_type_ex;
+    assign csr_addr_ex = instruction_ex[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
+
+    
+    csr_reg csr_reg_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+         // to ex
+        .we_i(csr_we_ex),
+        .raddr_i(csr_addr_id), 
+        .waddr_i(csr_addr_ex), 
+        .data_i(csr_write_data_ex), 
+        .data_o(csr_read_data_id), 
+        
+        // from clint
+        .clint_we_i(clint2csr_we),              
+        .clint_raddr_i(clint2csr_waddr),        
+        .clint_waddr_i(clint2csr_raddr),      
+        .clint_data_i(clint2csr_wdata),         
+
+        .global_int_en_o(global_int_enable),          
+    
+        //not used
+        .clint_data_o(csr2clint_data),      
+        .clint_csr_mtvec(clint_csr_mtvec),   // mtvec
+        .clint_csr_mepc(clint_csr_mepc),    // mepc
+        .clint_csr_mstatus(clint_csr_mstatus) // mstatus
+    );
+    
+    
+    wire [1:0]mem_raddr_index;
+    wire [1:0]mem_waddr_index;
+    wire [7:0] ram_wdata_byte;
+    assign ram_wdata_byte = ram_wdata_ex[7:0];
+    wire [15:0]ram_wdata_half_word;
+    assign ram_wdata_half_word = ram_wdata_ex[15:0];
+    wire [31:0]ram_wdata_word;
+    assign ram_wdata_word = ram_wdata_ex[31:0];
+    reg [3:0]ram_wbyte;
+    reg [1:0]ram_whalfword;
+    wire ram_wword;
+ 
+    assign ram_wword = (ins_func3_ex ==  3'b010)? ram_we: 1'b0;
+    assign ram_wdata_ex = rs2_data_forward;
+    assign mem_waddr_index = {ram_address_ex[1],  ram_address_ex[0]};
+    always@(*)begin
+        if( (ins_func3_ex ==  3'b000))begin
+            case(mem_waddr_index)
+                2'b00:begin
+                    ram_wbyte = {3'b000,ram_we};
+                end
+                2'b01:begin
+                    ram_wbyte = {2'b00,ram_we, 1'b0};
+                end
+                2'b10:begin
+                    ram_wbyte =  {1'b0,ram_we, 2'b00};
+                end
+                2'b11:begin
+                    ram_wbyte = {ram_we, 3'b000};
+                end
+                default:begin
+                    ram_wbyte = 4'b0000;
+                end
+            endcase
+        end
+        else begin
+            ram_wbyte = 4'b0000;
+        end
+    end
+    
+    always@(*)begin
+        if((ins_func3_ex ==  3'b001))begin
+            case(mem_waddr_index)
+                2'b00:begin
+                    ram_whalfword =  {1'b0,ram_we};
+                end
+                2'b10:begin
+                    ram_whalfword =  {ram_we, 1'b0};
+                end
+                default:begin
+                    ram_whalfword = 2'b00;
+                end
+            endcase
+        end
+        else begin
+            ram_whalfword = 2'b00;
+        end
+    end
+                                
+    always@(*)begin
+            case(ins_func3_ex)
+            //SB
+             3'b000:begin
+                    ram_wmask <= ram_wbyte;
+                    ram_wdata[31:24] = (ram_wbyte[3])?ram_wdata_byte:8'd0;
+                    ram_wdata[23:16] = (ram_wbyte[2])?ram_wdata_byte:8'd0;
+                    ram_wdata[15:8] = (ram_wbyte[1])?ram_wdata_byte:8'd0;
+                    ram_wdata[7:0] = (ram_wbyte[0])?ram_wdata_byte:8'd0;
+             end
+            //SH
+             3'b001:begin
+                    ram_wmask <= {{2{ram_whalfword[1]}},{2{ram_whalfword[0]}}};
+                    ram_wdata[31:16] = (ram_whalfword[1])?ram_wdata_half_word:16'd0;
+                    ram_wdata[15:0] = (ram_whalfword[0])?ram_wdata_half_word:16'd0;
+             end
+             3'b010:begin
+                    ram_wmask <= {4{ram_wword}};
+                    ram_wdata <= ram_wdata_word;
+             end
+             default:begin
+                   ram_wmask <= 4'b0000;
+                   ram_wdata <= 32'd0;
+             end
+         endcase
+    end
+    
     
     assign ins_func3_ex = instruction_ex[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH : `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH];
     
@@ -494,81 +668,31 @@ module riscv_core(
         .alu_zero(alu_zero)
     );
 
-    wire [`CsrMemAddrWIDTH - 1:0]csr_addr_ex;
-//    wire [`DATA_WIDTH - 1:0]csr_read_data;
-    wire [`DATA_WIDTH - 1:0]csr_read_data_ex;
-    wire [`DATA_WIDTH - 1:0]csr_write_data_ex;
-    wire csr_we_ex;
-//    wire [`DATA_WIDTH - 1:0]csr_read_data;
+    reg [`BUS_WIDTH - 1:0]ram_address_final;
+    reg ram_address_valid;
+    assign ram_address_ex = alu_output_ex;
+    assign ram_address = (ram_address_valid)?ram_address_final:ram_address_ex;
+    assign req_not_hit = ram_req  &&  !(ram_addr_ok);
     
-    csr_control csr_control_inst(
-        .csr_type(csr_type_ex),
-        .fun3(ins_func3_ex),
-        .csr_addr_i(pc_ex[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH]),
-        .wdata_imm(imm_ex),
-        .wdata_rs(rs1_data_forward),
-        .rdata_i(csr_read_data_ex),
-        .we(csr_we_ex),
-        .csr_addr_o(csr_addr_ex),
-        .wdata_o(csr_write_data_ex)
-    );
+    always@(posedge clk)
+    begin
+        if (!rst_n )
+        begin;
+            ram_address_valid <= 1'b0;
+            ram_address_final <= 0;
+        end
+        else if( req_not_hit && !(ram_address_valid))begin
+            ram_address_final <= ram_address_ex;
+            ram_address_valid <= 1'b1;
+        end
+        else if(!req_not_hit)begin
+            ram_address_valid <= 1'b0;
+        end
+    end
     
-     clint clint_inst(
-        .clk(clk),
-        .rst_n(rst_n),
-        //???§Ø????? ????core
-        .int_flag_i(external_int_flag),
-        .inst_i(instruction_ex),          // ???????
-        .inst_addr_i(pc_ex),    // ?????
-        //?????jal???
-        .jump_flag_i(1'b0),
-        .jump_addr_i(32'd0),
-        .data_i(csr2clint_data),      
-        .csr_mtvec(clint_csr_mtvec), 
-        .csr_mepc(clint_csr_mepc),           
-        .csr_mstatus(clint_csr_mstatus),         // mstatus?????
-        .global_int_en_i(global_int_enable),              // ????§Ø??????
-        
-        //????????§Õcsr???????hold????
-        .hold_flag_o(clint_hold_flag),                 // ???????????
-        .we_o(clint2csr_we),        
-        .waddr_o(clint2csr_waddr),         // §ÕCSR????????
-        .raddr_o(clint2csr_raddr),         // ??CSR????????
-        .data_o(clint2csr_wdata),         // §ÕCSR?????????
-        .int_addr_o(clint_int_pc), 
-        .int_assert_o(clint_int_assert) 
-    );
-    
-    csr_reg csr_reg_inst(
-        .clk(clk),
-        .rst_n(rst_n),
-         // to ex
-        .we_i(csr_we_ex),
-        .raddr_i(csr_addr_ex), 
-        .waddr_i(csr_addr_ex), 
-        .data_i(csr_write_data_ex), 
-        .data_o(csr_read_data_ex), 
-        
-        // from clint
-        .clint_we_i(clint2csr_we),                  // clint???§Õ????????
-        .clint_raddr_i(clint2csr_waddr),         // clint????????????
-        .clint_waddr_i(clint2csr_raddr),         // clint???§Õ????????
-        .clint_data_i(clint_int_pc),          // clint???§Õ?????????
-
-        .global_int_en_o(global_int_enable),            // ????§Ø??????
-    
-        .clint_data_o(csr2clint_data),       // clint?????????????
-        .clint_csr_mtvec(clint_csr_mtvec),   // mtvec
-        .clint_csr_mepc(clint_csr_mepc),    // mepc
-        .clint_csr_mstatus(clint_csr_mstatus) // mstatus
-    );
-    
-    wire [`BUS_WIDTH - 1 :0]mem_address_ex;
-    wire [2:0]mem_address_mux_ex;
-    assign mem_address_mux_ex={ csr_type_ex,lui_type_ex,~(lui_type_ex | csr_type_ex)};
-//    assign mem_address_ex = (lui_type_ex)?imm_ex:alu_output_ex;
-//    // num1  num2 ????§¹??????? num1
-    mux3 #(.WIDTH(`DATA_WIDTH))
+    wire [1:0]mem_address_mux_ex;
+    assign mem_address_mux_ex={ csr_type_ex, lui_type_ex};
+    mux3_switch2 #(.WIDTH(`DATA_WIDTH))
     mem_address_mux(
         .num0(alu_output_ex),
         .num1(imm_ex),
@@ -578,22 +702,19 @@ module riscv_core(
         .muxout(mem_address_ex)
     );
     
-    wire flush_mem;
-    assign flush_mem = 1'b0;
     //when flush,next ins becomes nop
     //when cancel,this ins becomes nop 
     //regs
     ex_mem ex_mem_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .flush(flush_mem),
+        .flush(1'b0),
         .hold(1'b0),
-        .mem_addr_ok(ram_addr_ok),
-        .ram_req(ram_req),
+        .mem_data_ok(ram_data_ok),
         .mem_address_i(mem_address_ex),
-        .mem_write_data_i(rs2_data_forward),
         .mem_address_o(ram_address_mem),
-        .mem_write_data_o(ram_wdata_mem),
+        .mem_read_data_i(ram_rdata),
+        .mem_read_data_o(ram_rdata_mem),
         .control_flow_ex(control_flow_ex),
         .control_flow_mem(control_flow_mem),
         .mem_write(write_mem_mem),
@@ -611,72 +732,77 @@ module riscv_core(
         .valid_mem(valid_mem),
         .ready_go_mem(ready_go_mem)
     );
-    wire [1:0]mem_raddr_index;
-    wire [1:0]mem_waddr_index;
-    assign mem_waddr_index = ram_address_mem[1:0];
-                                
-    always@(*)begin
-        if(ram_we)begin
-            case(ins_func3_mem)
-            //SB
-             3'b000:begin
-                case(mem_waddr_index)
-                2'b00:begin
-                    ram_wmask <= 4'b0001;
-//                    ram_wdata = {{24{ram_wdata_mem[7]}},ram_wdata_mem[7:0]};
-                    ram_wdata = {24'b0 ,ram_wdata_mem[7:0]};
-                end
-                2'b01:begin
-                    ram_wmask <= 4'b0010;
-                    ram_wdata = {16'b0,ram_wdata_mem[7:0],8'b0};
-                end
-                2'b10:begin
-                    ram_wmask <= 4'b0100;
-                    ram_wdata = {8'b0,ram_wdata_mem[7:0],16'b0};
-                end
-                2'b11:begin
-                    ram_wmask <= 4'b1000;
-                    ram_wdata = {ram_wdata_mem[7:0],24'b0};
-                end
-                default:begin
-                    ram_wmask <= 4'b0000;
-                    ram_wdata <= 32'd0;
-                end
-               endcase
-             end
-            //SH
-             3'b001:begin
-                 case(mem_waddr_index)
-                    2'b00:begin
-                        ram_wmask <= 4'b0011;
-                        ram_wdata = {16'b0 ,ram_wdata_mem[15:0]};
-                    end
-                    default:begin
-                        ram_wmask <= 4'b1100;
-                        ram_wdata <= {ram_wdata_mem[15:0],16'b0};
-                    end
-                 endcase   
-             end
-             3'b010:begin
-                ram_wmask <= 4'b1111;
-                ram_wdata <= ram_wdata_mem;
-             end
-             default:begin
-                ram_wmask <= 4'b1111;
-                ram_wdata <= ram_wdata_mem;
-             end
-             endcase
-         end
-        else begin
-               ram_wmask <= 4'b0000;
-               ram_wdata <= 32'd0;
-        end
-    end
-    
+
     //pure logic
-    assign ram_we = write_mem_mem;
-    assign ram_address = ram_address_mem;
-    assign ram_rdata_mem = ram_rdata;
+    //for load ins
+    assign mem_raddr_index = ram_address_mem[1:0];
+    always@(*)begin
+        case (ins_func3_mem)
+            //LB
+            3'b000:begin
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_mem_mask = {{24{ram_rdata_mem[7]}}, ram_rdata_mem[7:0]};
+                    end
+                    2'b01: begin
+                        ram_rdata_mem_mask = {{24{ram_rdata_mem[15]}}, ram_rdata_mem[15:8]};
+                    end
+                    2'b10: begin
+                        ram_rdata_mem_mask = {{24{ram_rdata_mem[23]}}, ram_rdata_mem[23:16]};
+                    end
+                    default: begin
+                        ram_rdata_mem_mask = {{24{ram_rdata_mem[31]}}, ram_rdata_mem[31:24]};
+                    end
+                endcase               
+            end
+            //LH
+            3'b001:begin
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_mem_mask = {{16{ram_rdata_mem[15]}}, ram_rdata_mem[15:0]};
+                    end
+                    default: begin
+                        ram_rdata_mem_mask = {{16{ram_rdata_mem[31]}}, ram_rdata_mem[31:16]}; 
+                    end
+                endcase     
+            end
+            //LW
+            3'b010:begin
+                ram_rdata_mem_mask = ram_rdata_mem; 
+            end
+            //LBU
+            3'b100:begin
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_mem_mask = {24'b0, ram_rdata_mem[7:0]};
+                    end
+                    2'b01: begin
+                        ram_rdata_mem_mask = {24'b0, ram_rdata_mem[15:8]};
+                    end
+                    2'b10: begin
+                        ram_rdata_mem_mask = {24'b0, ram_rdata_mem[23:16]};
+                    end
+                    default: begin
+                        ram_rdata_mem_mask = {24'b0, ram_rdata_mem[31:24]};
+                    end
+                endcase
+            end
+            //LHU
+            3'b101:begin
+                case(mem_raddr_index)
+                    2'b00: begin
+                        ram_rdata_mem_mask = {16'b0, ram_rdata_mem[15:0]};
+                    end
+                    default: begin
+                        ram_rdata_mem_mask = {16'b0, ram_rdata_mem[31:16]}; 
+                    end
+                endcase    
+            end
+            default:begin
+                ram_rdata_mem_mask = ram_rdata_mem;
+            end
+        endcase
+    end
     
     //regs       
     mem_wb mem_wb_inst(
@@ -684,13 +810,10 @@ module riscv_core(
         .rst_n(rst_n),
         .flush(1'b0),
         .hold(1'b0),
-        .mem_data_ok(ram_data_ok),
-        .mem_read_data_i(ram_rdata_mem),
-        .mem_read_data_o(ram_rdata_wb),
         .mem_address_i(ram_address_mem),
         .mem_address_o(ram_address_wb),
-        .fence_type_mem(fence_type_mem),
-        .fence_type_wb(fence_type_wb),
+        .mem_read_data_i(ram_rdata_mem_mask),
+        .mem_read_data_o(ram_rdata_wb),
         //read_data from memory
         .control_flow_mem(control_flow_mem),
         .write_reg(write_reg_wb),
@@ -708,80 +831,9 @@ module riscv_core(
         .ready_go_wb(ready_go_wb)
     );
     
-    //pure logic
-    //for load ins
-    assign mem_raddr_index = ram_address_wb[1:0];
-    always@(*)begin
-        case (ins_func3_wb)
-            //LB
-            3'b000:begin
-                case(mem_raddr_index)
-                    2'b00: begin
-                        ram_rdata_wb_mask = {{24{ram_rdata_wb[7]}}, ram_rdata_wb[7:0]};
-                    end
-                    2'b01: begin
-                        ram_rdata_wb_mask = {{24{ram_rdata_wb[15]}}, ram_rdata_wb[15:8]};
-                    end
-                    2'b10: begin
-                        ram_rdata_wb_mask = {{24{ram_rdata_wb[23]}}, ram_rdata_wb[23:16]};
-                    end
-                    default: begin
-                        ram_rdata_wb_mask = {{24{ram_rdata_wb[31]}}, ram_rdata_wb[31:24]};
-                    end
-                endcase               
-            end
-            //LH
-            3'b001:begin
-                case(mem_raddr_index)
-                    2'b00: begin
-                        ram_rdata_wb_mask = {{16{ram_rdata_wb[15]}}, ram_rdata_wb[15:0]};
-                    end
-                    default: begin
-                        ram_rdata_wb_mask = {{16{ram_rdata_wb[31]}}, ram_rdata_wb[31:16]}; 
-                    end
-                endcase     
-            end
-            //LW
-            3'b010:begin
-                ram_rdata_wb_mask = ram_rdata_wb; 
-            end
-            //LBU
-            3'b100:begin
-                case(mem_raddr_index)
-                    2'b00: begin
-                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[7:0]};
-                    end
-                    2'b01: begin
-                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[15:8]};
-                    end
-                    2'b10: begin
-                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[23:16]};
-                    end
-                    default: begin
-                        ram_rdata_wb_mask = {24'b0, ram_rdata_wb[31:24]};
-                    end
-                endcase
-            end
-            //LHU
-            3'b101:begin
-                case(mem_raddr_index)
-                    2'b00: begin
-                        ram_rdata_wb_mask = {16'b0, ram_rdata_wb[15:0]};
-                    end
-                    default: begin
-                        ram_rdata_wb_mask = {16'b0, ram_rdata_wb[31:16]}; 
-                    end
-                endcase    
-            end
-            default:begin
-                ram_rdata_wb_mask = ram_rdata_wb;
-            end
-        endcase
-    end
-            
     mux2num  mux2_wb_data_switch(
         .num0(ram_address_wb),
-        .num1(ram_rdata_wb_mask),
+        .num1(ram_rdata_wb),
         .switch(mem2reg_wb),
         .muxout(wb_data_wb)
      );

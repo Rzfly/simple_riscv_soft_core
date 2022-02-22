@@ -29,7 +29,7 @@ module pc_gen #(
     input [`BUS_WIDTH - 1:0]branch_addr,
     input jump,
     input hold,
-    input fence,
+    input flush,
     input mem_addr_ok,
     //input mem_ok,
     output rom_req,
@@ -43,7 +43,7 @@ module pc_gen #(
 
 //    wire hold_pipe;
     wire stop_req;
-    assign stop_req = fence || hold || !allow_in_if;
+    assign stop_req = flush || hold || !allow_in_if;
     wire [`BUS_WIDTH - 1:0] pc_add;
     wire [`BUS_WIDTH - 1:0] jump_addr;
     assign jump_addr = branch_addr;

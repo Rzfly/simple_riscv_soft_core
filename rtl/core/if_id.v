@@ -60,7 +60,7 @@ module if_id(
     assign allow_in_id = !(valid_id) || ready_go_id & (allow_in_ex);
 
 
-    always@(posedge clk or negedge rst_n)
+    always@(posedge clk)
     begin
         if ( ~rst_n )
         begin;

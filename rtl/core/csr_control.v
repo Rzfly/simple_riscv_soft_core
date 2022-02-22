@@ -3,14 +3,10 @@
 
 
 module csr_control(
-	input csr_type,
 	input [`FUNC3_WIDTH - 1:0]fun3,
-	input [`CsrMemAddrWIDTH  -1:0]csr_addr_i,
 	input [`DATA_WIDTH -1:0]wdata_imm,
 	input [`DATA_WIDTH -1:0]wdata_rs,
 	input [`DATA_WIDTH -1:0]rdata_i,
-	output we,
-	output [`CsrMemAddrWIDTH  -1:0]csr_addr_o,
 	output reg [`DATA_WIDTH -1:0]wdata_o
 );
 
@@ -55,6 +51,4 @@ module csr_control(
 		endcase
 	end
 	
-	assign csr_addr_o = csr_addr_i;
-	assign we = csr_type;
 endmodule

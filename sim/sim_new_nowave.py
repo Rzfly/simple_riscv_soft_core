@@ -10,7 +10,7 @@ def main():
     #print(sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2])
 
     # 1.将bin文件转成mem文件
-    cmd = r'python ./BinToMem_CLI.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
+    cmd = r'python ./BinToMem_coe.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
     f = os.popen(cmd)
     d = f.read()
     print(d)

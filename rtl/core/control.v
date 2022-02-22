@@ -1,5 +1,3 @@
-
-
 `include "include.v"
 
 module control(
@@ -221,7 +219,7 @@ module control(
                 //11'd0, imm[20]. imm[19:12],imm[11],imm[10:1],0
                 //12'd0, imm[20]. imm[19:12],imm[11],imm[10:1]
                 //add pc.not shifted
-                imm_long <= {12'd0,instruction[`DATA_WIDTH - 1],instruction[`DATA_WIDTH - `JAL_IMM_WIDTH + 7:`DATA_WIDTH - `JAL_IMM_WIDTH],instruction[`DATA_WIDTH - `JAL_IMM_WIDTH + 8],instruction[`DATA_WIDTH - 2:`DATA_WIDTH - 11]};
+                imm_long <= {{13{instruction[`DATA_WIDTH - 1]}},instruction[`DATA_WIDTH - `JAL_IMM_WIDTH + 7:`DATA_WIDTH - `JAL_IMM_WIDTH],instruction[`DATA_WIDTH - `JAL_IMM_WIDTH + 8],instruction[`DATA_WIDTH - 2:`DATA_WIDTH - 11]};
                 //`DATA_WIDTH - 11 = `DATA_WIDTH - `JAL_IMM_WIDTH + 9 ? yes
             end
            `CSR_TYPE:begin
