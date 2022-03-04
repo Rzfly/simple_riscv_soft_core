@@ -52,7 +52,7 @@ module sirv_sim_ram
 
     reg read_data_ok;
     reg write_data_ok;
-    assign mem_addr_ok = cs & rst_n;
+    assign mem_addr_ok = rst_n;
     assign mem_data_ok = write_data_ok | read_data_ok;
     
     assign ren = cs & (~we);

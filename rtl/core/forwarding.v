@@ -1,39 +1,95 @@
 
 `include "include.v"
 
-module forwarding(
+module forwarding_ex(
+    input [`DATA_WIDTH - 1:0]rs1_data_ex,
+    input [`DATA_WIDTH - 1:0]rs2_data_ex,
+    input [`DATA_WIDTH - 1:0]wb_data_wb,
 	input [`RS1_WIDTH -1:0]rs1_ex,
 	input [`RS2_WIDTH -1:0]rs2_ex,
 	input [`RD_WIDTH -1:0]rd_wb,
 	input  write_reg_wb,
-	input [`RD_WIDTH -1:0]rd_mem,
-	input  write_reg_mem,
-	output [2:0]rs1_forward,
-//	output [`RS1_WIDTH -1:0]rs1_forward_data
-	output [2:0]rs2_forward
-//	output [`RS1_WIDTH -1:0]rs2_forward_data
+//	input  mem2reg_wb,
+	output [`DATA_WIDTH - 1:0]rs1_data_forward,
+	output [`DATA_WIDTH - 1:0]rs2_data_forward
 );
 
-//�?: regfile 内部已经处理了读写冲突，�?律先写后读，因此读取regfile	不需要前递wb阶段的数�?
-//但是id阶段读取regfile 仍然�?要前递ex和mem阶段的指令执行结�?
-//为了�?化操作，id的前递被转移到ex阶段执行，相应地，前递ex和mem阶段的指令结果转化为前�?�mem和wb阶段的指令结�?
-//值得注意的是，如果同时需要前递前两个阶段的指令结果，要如何处理？
-//应当注意到，mem阶段的指令结果是�?新的，�?�且也经过了前�?�处理，�?以，此时应当取mem阶段的指令结�?
-//以上，开始编程！
+	wire rs1_forward = (rd_wb == rs1_ex)? ( write_reg_wb & (|rd_wb) ):1'b0;
+	wire rs2_forward = (rd_wb == rs2_ex)? ( write_reg_wb & (|rd_wb) ):1'b0;
+	
+//	wire [1:0]wb_source;
+	assign rs1_data_forward = (rs1_forward)?wb_data_wb:rs1_data_ex;
+	assign rs2_data_forward = (rs2_forward)?wb_data_wb:rs2_data_ex; 
 
-	//前�?�wb阶段的数�?  但是mem阶段优先
-	assign rs1_forward[2] = (rd_wb == rs1_ex)? (~rs1_forward[1] & write_reg_wb & (|rd_wb) ):1'b0;
-	//前�?�mem阶段的数�? 
-	assign rs1_forward[1] = (rd_mem == rs1_ex)? (write_reg_mem & (|rd_mem)):1'b0;
-	//不前�?
-	assign rs1_forward[0] = ~rs1_forward[2] & ~rs1_forward[1];
+endmodule
+
+module forwarding_id(
+    input [`DATA_WIDTH - 1:0]rs1_data_id,
+    input [`DATA_WIDTH - 1:0]rs2_data_id,
+    input [`DATA_WIDTH - 1:0]alu_output_ex,
+    input [`DATA_WIDTH - 1:0]csr_read_data_ex,
+    input [`DATA_WIDTH - 1:0]imm_ex,
+    input csr_we_ex,
+    input lui_type_ex,
+	input [`RS1_WIDTH -1:0]rs1_id,
+	input [`RS2_WIDTH -1:0]rs2_id,
+	input [`RD_WIDTH -1:0]rd_ex,
+	input  write_reg_ex,
+//	input  mem2reg_wb,
+	output reg [`DATA_WIDTH - 1:0]rs1_data_forward_id,
+	output reg [`DATA_WIDTH - 1:0]rs2_data_forward_id
+);
+
+	wire rs1_forward = (rd_ex == rs1_id)? ( write_reg_ex & (|rd_ex) ):1'b0;
+	wire rs2_forward = (rd_ex == rs2_id)? ( write_reg_ex & (|rd_ex) ):1'b0;
+	wire [2:0]rs1_forward_mux_ex;
+	wire [2:0]rs2_forward_mux_ex;
+	assign rs1_forward_mux_ex = {rs1_forward, csr_we_ex, lui_type_ex};
+	assign rs2_forward_mux_ex = {rs2_forward, csr_we_ex, lui_type_ex};
 	
-	//前�?�wb阶段的数�?  但是mem阶段优先
-	assign rs2_forward[2] = (rd_wb == rs2_ex)? (~rs2_forward[1] & write_reg_wb & (|rd_wb) ):1'b0;
-	//前�?�mem阶段的数�? 
-	assign rs2_forward[1] = (rd_mem == rs2_ex)? (write_reg_mem & (|rd_mem)):1'b0;
-	//不前�?
-	assign rs2_forward[0] = ~rs2_forward[2] & ~rs2_forward[1];
+	always@(*)begin
+	   case(rs1_forward_mux_ex)
+	       3'b0xx:begin
+	           rs1_data_forward_id = rs1_data_id;
+	       end
+	       //alu write
+	       3'b100:begin
+	           rs1_data_forward_id = alu_output_ex;
+	       end
+	       //lui
+	       3'b101:begin
+	           rs1_data_forward_id = imm_ex;
+	       end
+	       //
+	       3'b110:begin
+	           rs1_data_forward_id = csr_read_data_ex;
+	       end
+	       default:begin
+	           rs1_data_forward_id = rs1_data_id;
+	       end
+	   endcase
+	end
 	
-	
+	always@(*)begin
+	   case(rs2_forward_mux_ex)
+	       3'b0xx:begin
+	           rs2_data_forward_id = rs2_data_id;
+	       end
+	       //alu write
+	       3'b100:begin
+	           rs2_data_forward_id = alu_output_ex;
+	       end
+	       //lui
+	       3'b101:begin
+	           rs2_data_forward_id = imm_ex;
+	       end
+	       //
+	       3'b110:begin
+	           rs2_data_forward_id = csr_read_data_ex;
+	       end
+	       default:begin
+	           rs2_data_forward_id = rs2_data_id;
+	       end
+	   endcase
+	end
 endmodule

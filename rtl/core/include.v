@@ -19,16 +19,16 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-//`define DRAM
-`define BRAM
+`define DRAM
+//`define BRAM
 `define RstDisable 1
 `define RstEnable 0
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define RAM_MASK_WIDTH 4
-`define MEMORY_DEPTH 2048
-`define MEMORY_WIDTH 10
-
+`define MEMORY_DEPTH 4096
+`define MEMORY_WIDTH 11
+`define JTAG_RESET_FF_LEVELS 5
 //p58 R-type
 `define FUNC7_WIDTH 7
 `define RS2_WIDTH 5

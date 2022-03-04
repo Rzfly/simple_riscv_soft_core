@@ -25,7 +25,7 @@ module srambus(
   )sirv_sim_ram_inst(
     .clk (clk ),
     .rst_n (rst_n ),
-    .cs  (cs),
+    .cs  (req_i),
     .we  (we  ),
     .addr(addr),
     .din (datai ),

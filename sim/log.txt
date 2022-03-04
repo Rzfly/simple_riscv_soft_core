@@ -1,9 +1,132 @@
+000302e7
+=0000 0000 0000 0011 0000 0010 1110 0111
+imm12                rs1    fun3       imm5         op
+0000 0000 0000 00110 000   0010 1   110 0111
+imm = 11111111 0000 0
+jalr x5, x6, imm
+
+30200073
+=0011 0000 0010 0000  0 000 0000 0 111 0011
+imm12                 rs1     fun3       rd             op
+0011 0000 0010 00000 000       000 00      111 0011
+MRT 
+
+00532023
+= 0000 0000 0101 0011 0010 0000 0010 
+
+30200073
+= 0011 0010 0000 0000 0000 0111 0011
+met
+
+00000097
+= 0000 0000 0000 0000 0000 0000 1001 0111
+
+00000193
+= 0000 0000 0000 0000 0000 0001 1001 0011
+
+imm 12  rs1 fun rd 
+
+addi x3, x0 imm
+
+
+00000297
+= 0000 0000 0000 0000 0000 0010 1 001 0111
+auipc x5, 0 
+
+
+40ff00b3
+= 0100 0000 1111 1111 0000 0000 1011 0011
+fun7           rs2        rs1        fun       rd       op 
+0100 000  01111    1111 0     000    00001 011 0011
+sub x1 x30,x15
+
+fb428293
+= fb428 0010 1 001 0011
+addi x5, fb4
+
+
+30529073
+= 0011 0000 0101 0010 1001 0000 0111 0011 
+imm12                    rs1     fun     rd        op
+0011 000  00101  00101    001  00000 111 0011 
+csr mtvec, rs5
+
+fe5210e3
+=1111 1110 0101 0010 0001 0000 1110 0011
+imm7         rs2         rs1      fun3    imm5         op
+1111 111  0 0101    00100    001    0000 1   110 0011
+imm = 11111111 0000 0
+bne x4,x1, -32
+
+0a629a63
+=0000 1010 0110 0010 1001 1010 0110 0011
+imm7         rs2         rs1      fun3    imm5         op
+0000101   00110   0010 1    001    1010 0   110 0011
+
+imm = 0 0 000101   1010  0
+bne x5, x6, ++
+
+
+13d31c63
+=0001 0011 1101 0011 0001 1100 0110 0011
+imm7         rs2         rs1      fun3    imm5         op
+0001001    11101    00110    001    1100 0   110 0011
+imm = 00001001    1100 0
+bne x6, x29, -32
+
+
+1b0000ef
+=0001 1011 0000 0000 0000 0000  1110 1111
+imm20		             rd          op
+0001 1011 0000 0000 0000   00001   110 1111
+
+imm = 00001001    1100 0
+bne x6, x29, -32
+
+
+ff000e93
+=1111 1111 0000 0000 0000 1110 1001 0011
+imm12                       rs1      fun3     rd         op
+1111 1111 0000       0000 0   000    1110 1   001 0011
+imm = 00001001    1100 0
+addi x29,  x0, ff0
+
+
+
+00d00193
+=0000 0000 1101 0000 0000 0001 1001 0011
+imm20		     rd      op
+11111111111111111000 11101 0110111 
+
 ffff8eb7
 =1111111111111111                 1000 11101 0110111 
-
 imm20		     rd      op
 11111111111111111000 11101 0110111 
   
+cdd08093
+=1100 1101 1101 0000 1000   0000 1001 0011
+imm12	          rs1	  fun3       rd         op
+1100 1101 1101 0000 1  000   00001  001 0011
+
+add  x1,x1,cdd
+
+aabbd0b7
+=1010 1010 1011 1011 1101 0000 1011 0111
+lui x1, aabbd
+
+00120213
+= 0000 0000 0001 0010  0000 0010 0001 0011
+imm12	          rs1	   fun3      rd         op
+1100 1101 1101 00100  000    0010 0 001 0011
+addi x4, x4, 001
+
+00000213
+= 0000 0000 0000 0000  0000 0010 0001 0011
+imm12	          rs1	   fun3      rd         op
+0000 0000 0000 00000  000    00100  001 0011
+addi x4, x0, 000
+
+
 ffff8137
 =1111111111111111 1000 0001 0011 0111
 imm20		     rd      op
@@ -144,6 +267,18 @@ sb
 sw
 sh
 
+python .\compliance_test.py C:\Users\newrz\Desktop\riscv\tinyriscv\tests\riscv-compliance\build_generated\rv32i\I-ADD-01.elf.bin inst.data
+
+
+python .\sim_new_nowave.py ..\..\tinyriscv\tests\isa\generated\rv32ui-p-add.bin inst.data inst.data
+python .\sim_new_nowave.py ..\tests\isa\generated\rv32ui-p-add.bin inst.data inst.data
+
+
+python .\sim_new_nowave.py C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_tx/uart_tx.bin inst.data
+python .\sim_new_nowave.py C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_rx/uart_rx.bin inst.data
+python .\sim_new_nowave.py C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/gpio/gpio.bin inst.data
+python ./tinyriscv_fw_downloader.py COM3 C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/gpio/gpio.bin
+
 load_image C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/simple.bin 0x0 bin 0x0 0x1000000
 
 load_image C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/gpio/gpio.bin 0x0 bin 0x0 0x1000000
@@ -151,10 +286,14 @@ load_image C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/gpio/gpio.bin 0x
 verify_image C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/gpio/gpio.bin 0x0
 
 
-
 load_image  C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_tx/uart_tx.bin 0x0 bin 0x0 0x1000000
 
 verify_image  C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_tx/uart_tx.bin 0x0
+
+
+load_image  C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_rx/uart_rx.bin 0x0 bin 0x0 0x1000000
+
+verify_image  C:/Users/newrz/Desktop/riscv/tinyriscv/tests/example/uart_rx/uart_rx.bin 0x0
 
 
 [DRC UCIO-1] Unconstrained Logical Port: 1 out of 18 logical ports have no user assigned specific location constraint (LOC). 

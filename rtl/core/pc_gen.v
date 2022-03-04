@@ -26,49 +26,114 @@
 module pc_gen #(
     parameter PC_WIDTH = 31
 )(
-    input [`BUS_WIDTH - 1:0]branch_addr,
+    input clk,
+    input rst_n,
+    input [`BUS_WIDTH - 1:0]jump_addr,
     input jump,
-    input hold,
-    input flush,
+    input fence_flush,
+    input jtag_halt_flag_i,
+    input clint_hold_flag,
     input mem_addr_ok,
     //input mem_ok,
-    output rom_req,
+    output reg rom_req,
     input [`BUS_WIDTH - 1:0] pc_if,
-    output [`BUS_WIDTH - 1:0] next_pc,
+    output reg [`BUS_WIDTH - 1:0]  next_pc,
     //not used
     input allow_in_if,
     output ready_go_pre,
+//    output jump_fail,
     output valid_pre
     );
-
 //    wire hold_pipe;
-    wire stop_req;
-    assign stop_req = flush || hold || !allow_in_if;
+//    wire stop_req;
+//    assign stop_req = flush || hold || !allow_in_if;
     wire [`BUS_WIDTH - 1:0] pc_add;
-    wire [`BUS_WIDTH - 1:0] jump_addr;
-    assign jump_addr = branch_addr;
-//    assign jump_addr = (fence)?pc_add:branch_addr;
+    reg [`BUS_WIDTH - 1:0] jump_addr_temp;
+    wire cancel_pc;
+    assign cancel_pc = fence_flush || jtag_halt_flag_i || clint_hold_flag || !allow_in_if;
+    wire [2:0]pc_control;
+    reg save_jump;
+    reg save_jump_valid;
+    assign pc_control = {cancel_pc, jump, save_jump_valid};
     assign pc_add = pc_if  + {`BUS_WIDTH'd4};
     
-//    assign hold_pipe = ~allow_in_if | hold;
-    assign next_pc = (stop_req)?pc_if:(jump)?jump_addr:pc_add;
     /// branch cal is not compeleted, so and (~hold)
-    assign ready_go_pre = rom_req & mem_addr_ok;
+    assign ready_go_pre = rom_req && mem_addr_ok;
     //if no ready go, next stage set this to zero
     assign valid_pre = mem_addr_ok;
-    assign rom_req = !stop_req;
+//    assign rom_req = !stop_req;
     
+    always@(*)begin
+        case(pc_control)
+            //none
+            3'b100:begin
+                next_pc <= pc_add;
+                rom_req <= 1'b0;
+                save_jump <= 1'b0;
+            end
+            //none
+            3'b101:begin
+                next_pc <= jump_addr_temp;
+                rom_req <= 1'b0;
+                save_jump <= 1'b0;
+            end
+            //save
+            3'b110:begin
+                next_pc <= jump_addr_temp;
+                rom_req <= 1'b0;
+                save_jump <= 1'b1;
+            end
+            3'b111:begin
+                next_pc <= jump_addr_temp;
+                rom_req <= 1'b0;
+                save_jump <= 1'b1;
+            end
+            3'b000:begin
+                next_pc <= pc_add;
+                rom_req <= 1'b1;
+                save_jump <= 1'b0;
+            end
+            //use old jump until ok
+            3'b001:begin
+                next_pc <= jump_addr_temp;
+                rom_req <= 1'b1;
+                save_jump <= 1'b0;
+            end
+            //flush old jump addr
+            3'b010:begin
+                next_pc <= jump_addr;
+                rom_req <= 1'b1;
+                save_jump <= 1'b0;
+            end
+            3'b011:begin
+                next_pc <= jump_addr;
+                rom_req <= 1'b1;
+                save_jump <= 1'b0;
+            end
+            default:begin
+                next_pc <= pc_add;
+                rom_req <= 1'b1;
+                save_jump <= 1'b0;
+            end
+        endcase
+    end
     
-//    always@(posedge clk)
-//    begin
-//        if (jump | ~rst_n )
-//        begin
-//            rom_req <= 0;
-//        end
-//        else
-//        begin
-//            rom_req <= 1;
-//        end
-//    end
+    always@(posedge clk)begin
+       if ( !rst_n )begin
+            jump_addr_temp <= 0; 
+            save_jump_valid <= 0;
+        end
+        else if(save_jump && jump)begin
+            jump_addr_temp <= jump_addr;
+            save_jump_valid <= 1;
+        end
+        else if(!save_jump && mem_addr_ok )begin
+            save_jump_valid <= 0;
+        end
+        else begin
+            jump_addr_temp <= jump_addr_temp;
+            save_jump_valid <= save_jump_valid;
+        end
+    end
     
 endmodule

@@ -27,23 +27,19 @@ module csr_reg(
     input wire[`CsrMemAddrWIDTH - 1 :0]  raddr_i,        // ex模块读寄存器地址
     input wire[`CsrMemAddrWIDTH - 1 :0]  waddr_i,        // ex模块写寄存器地址
     input wire[`DATA_WIDTH - 1:0]     data_i,             // ex模块写寄存器数据
-
+    // to ex
+    output reg [`DATA_WIDTH - 1:0] data_o,              // ex模块读寄存器数据
+    
     // from clint
     input wire clint_we_i,                  // clint模块写寄存器标志
-    input wire[`MemAddrWIDTH - 1 :0] clint_raddr_i,  // clint模块读寄存器地址
     input wire[`MemAddrWIDTH - 1 :0] clint_waddr_i,  // clint模块写寄存器地址
     input wire[`DATA_WIDTH - 1:0] clint_data_i,       // clint模块写寄存器数据
 
-    output wire global_int_en_o,            // 全局中断使能标志
-
     // to clint
-    output reg [`DATA_WIDTH - 1:0] clint_data_o,       // clint模块读寄存器数据
     output wire[`DATA_WIDTH - 1:0] clint_csr_mtvec,   // mtvec
     output wire[`DATA_WIDTH - 1:0] clint_csr_mepc,    // mepc
-    output wire[`DATA_WIDTH - 1:0] clint_csr_mstatus, // mstatus
+    output wire[`DATA_WIDTH - 1:0] clint_csr_mstatus  // mstatus
 
-    // to ex
-    output reg [`DATA_WIDTH - 1:0] data_o              // ex模块读寄存器数据
     );
 
     //定时计数器
@@ -61,12 +57,10 @@ module csr_reg(
     //临时保存寄存器
     reg[`DATA_WIDTH - 1:0] mscratch;
 
-    assign global_int_en_o = (mstatus[3] == 1'b1)? `True: `False;
-
     assign clint_csr_mtvec = mtvec;
     assign clint_csr_mepc = mepc;
     assign clint_csr_mstatus = mstatus;
-
+        
     // cycle counter
     // 复位撤销后就一直计数
     always @ (posedge clk) begin
@@ -175,44 +169,6 @@ module csr_reg(
                 end
                 default: begin
                     data_o <= 0;
-                end
-            endcase
-        end
-    end
-
-    // read reg
-    // clint模块读CSR寄存器
-    always @ (*) begin
-        if ((clint_waddr_i[`CsrMemAddrWIDTH - 1:0]  == clint_raddr_i[`CsrMemAddrWIDTH - 1:0] ) && (clint_we_i == 1'b1)) begin
-            clint_data_o = clint_data_i;
-        end else begin
-            case (clint_raddr_i[`CsrMemAddrWIDTH - 1:0] )
-                `CSR_CYCLE: begin
-                    clint_data_o = cycle[`DATA_WIDTH - 1:0];
-                end
-                `CSR_CYCLEH: begin
-                    clint_data_o <= cycle[2*`DATA_WIDTH - 1:`DATA_WIDTH];
-                end
-                `CSR_MTVEC: begin
-                    clint_data_o <= mtvec;
-                end
-                `CSR_MCAUSE: begin
-                    clint_data_o <= mcause;
-                end
-                `CSR_MEPC: begin
-                    clint_data_o <= mepc;
-                end
-                `CSR_MIE: begin
-                    clint_data_o <= mie;
-                end
-                `CSR_MSTATUS: begin
-                    clint_data_o <= mstatus;
-                end
-                `CSR_MSCRATCH: begin
-                    clint_data_o <= mscratch;
-                end
-                default: begin
-                    clint_data_o <= 0;
                 end
             endcase
         end

@@ -5,7 +5,7 @@ module alu(
     input [`DATA_WIDTH - 1:0]alu_src_1,
     input [`DATA_WIDTH - 1:0]alu_src_2,
     input [`ALU_OP_WIDTH - 1:0]operation,
-    output alu_zero,
+    output alu_no_zero,
     output [`DATA_WIDTH - 1:0]alu_output
 );
 
@@ -141,6 +141,6 @@ module alu(
 
    assign alu_slt_res = slttu_res;
    assign alu_sltu_res = slttu_res;
-   assign alu_zero = ( ~( | alu_addsub_res )) & ( op_sub );
-
+//   assign alu_zero = ( ~( | alu_addsub_res )) & ( op_sub );
+   assign alu_no_zero = (| alu_addsub_res );
 endmodule

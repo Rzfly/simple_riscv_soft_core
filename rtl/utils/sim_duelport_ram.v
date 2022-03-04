@@ -1,5 +1,6 @@
 
 //write first
+`include "include.v"
 module sirv_duelport_ram 
 #(parameter DP = 2048,
   parameter FORCE_X2ZERO = 0,
@@ -9,8 +10,10 @@ module sirv_duelport_ram
 )
 (
   input             clk, 
-  input  rst_n,
-  input             cs,
+  input  			rst_n,
+  input             cs, 
+  input             req_a,
+  input             req_b,
   input  [DW-1  :0] din_a, 
   input  [DW-1  :0] din_b, 
   input  [AW-1  :0] addr_a,
@@ -20,87 +23,87 @@ module sirv_duelport_ram
   input  [MW-1:0]   wem_a,
   input  [MW-1:0]   wem_b,
   output [DW-1:0]   dout_a,
-  output [DW-1:0]   dout_b
+  output [DW-1:0]   dout_b,
+  output mem_addr_ok_a,
+  output mem_data_ok_a,
+  output mem_addr_ok_b,
+  output mem_data_ok_b
+  
 );
 
     reg [DW-1:0] mem_r [0:DP-1];
-//    reg [AW-1:0] waddr_r;
-    reg [AW-1:0] addr_a_r;
-    reg [AW-1:0] addr_b_r;
+    reg [AW-1:0]addr_a_r;
+    reg [AW-1:0]addr_b_r;
     wire [MW-1:0] wen_a;
     wire [MW-1:0] wen_b;
     wire ren_a;
     wire ren_b;
-
-//    assign ren = cs & (~we);
-	assign ren_a = cs;
-	assign ren_b = cs;
-    assign wen_a = ({MW{cs & we_a}} & wem_a);
-    assign wen_b = ({MW{cs & we_b}} & wem_b) & (~wen_a);
+	wire read_a_disable;
+	assign read_a_disable = (addr_a == addr_b)?we_b:1'b0;
+	
+    reg read_data_ok_a;
+    wire write_data_ok_a;
+    reg read_data_ok_b;
+    reg write_data_ok_b;
+    assign mem_addr_ok_a = (!read_a_disable);
+    assign mem_addr_ok_b = 1'b1 ;
+	
+	assign ren_a = rst_n & req_a & (!read_a_disable);
+	assign ren_b = 1'b0;
+	
+    assign mem_data_ok_a = write_data_ok_a | read_data_ok_a;
+    assign mem_data_ok_b = write_data_ok_b | read_data_ok_b;
     
-    integer j;
-    initial begin
-        for( j = 0; j < DP; j = j + 1)begin
-            mem_r[j] <= 0;  
-       end
-    end
-
-    genvar i;
-
+    assign wen_a = 1'b0;
+    assign wen_b = ({MW{rst_n & req_b & we_b}} & wem_b);
+    
     always @(posedge clk)
     begin
-        if(~rst_n)begin
+        if(!rst_n)begin
             addr_a_r <= 0;   
+            read_data_ok_a <= 1'b0;
         end
         else if (ren_a)begin
             addr_a_r <= addr_a;
+            read_data_ok_a <= 1'b1;
+        end
+		else begin
+            read_data_ok_a <= 1'b0;
         end
     end
-
+	
     always @(posedge clk)
     begin
-        if(~rst_n)begin
-            addr_b_r <= 0;        
+        if(!rst_n)begin
+            addr_b_r <= 0;   
+            read_data_ok_b <= 1'b0;
         end
         else if (ren_b)begin
             addr_b_r <= addr_b;
+            read_data_ok_b <= 1'b1;
+        end
+		else begin
+            read_data_ok_b <= 1'b0;
         end
     end
     
-	//write logic
-//    generate
-//      for (i = 0; i < MW; i = i+1) begin :mem
-//        if((8*i+8) > DW ) begin: last
-//          always @(posedge clk) begin
-//            if(~rst_n)begin
-//               mem_r[addr_a][DW-1:8*i] <= 0;
-//               mem_r[addr_b][DW-1:8*i] <= 0;
-//            end
-//            else if (wen_a[i]) begin
-//               mem_r[addr_a][DW-1:8*i] <= din_a[DW-1:8*i];
-//            end
-//            else if (wen_b[i]) begin
-//               mem_r[addr_b][DW-1:8*i] <= din_b[DW-1:8*i];
-//            end
-//          end
-//        end
-//        else begin: non_last
-//          always @(posedge clk) begin
-//            if(~rst_n)begin
-//               mem_r[addr_a][8*i+7:8*i] <= 0;
-//               mem_r[addr_b][8*i+7:8*i] <= 0;
-//            end
-//            else if (wen_a[i]) begin
-//               mem_r[addr_a][8*i+7:8*i] <= din_a[8*i+7:8*i];
-//            end
-//            else if (wen_b[i]) begin
-//               mem_r[addr_b][8*i+7:8*i] <= din_b[8*i+7:8*i];
-//            end
-//          end
-//        end
-//      end
-//    endgenerate
-        generate
+	assign write_data_ok_a = 1'b0;
+	always @(posedge clk)
+    begin
+        if(~rst_n)begin
+            write_data_ok_b <= 1'b0;
+        end
+        else if (wen_b)begin
+            write_data_ok_b <= 1'b1;
+        end
+        else begin
+            write_data_ok_b <= 1'b0;
+        end
+    end
+	
+    genvar i;
+		
+    generate
       for (i = 0; i < MW; i = i+1) begin :mem
         if((8*i+8) > DW ) begin: last
           always @(posedge clk) begin

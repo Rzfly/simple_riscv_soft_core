@@ -20,9 +20,11 @@ def main():
     rtl_path = root_path + '\\rtl'
     tb_path = root_path + '\\tb'
 
+    tb_file = r' /tb/riscv_core_sim.v'
+
 
     # 2.编译rtl文件
-    cmd = r'python compile_rtl.py' + r' ..'
+    cmd = r'python compile_rtl.py' + r" .." + tb_file
 
     f = os.popen(cmd)
     d = f.read()

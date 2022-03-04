@@ -23,20 +23,26 @@ def get_reference_file(bin_file):
     tmp = file_name.split('.')
     # 得到bin文件的前缀部分
     prefix = tmp[0]
-    #print('bin prefix: %s' % prefix)
+    print('bin prefix: %s' % prefix)
+    print(bin_file)
 
     files = []
-    if (bin_file.find('rv32im') != -1):
-        files = list_ref_files(r'../../tests/riscv-compliance/riscv-test-suite/rv32im/references')
-    elif (bin_file.find('rv32i') != -1):
-        files = list_ref_files(r'../../tests/riscv-compliance/riscv-test-suite/rv32i/references')
+    if (bin_file.find('rv32i') != -1):
+        print('rv32i')
+        files = list_ref_files(r'../../../tinyriscv/tests/riscv-compliance/riscv-test-suite/rv32i/references')
+    elif (bin_file.find('rv32im') != -1):
+        print('rv32im')
+        files = list_ref_files(r'../../../tinyriscv/tests/riscv-compliance/riscv-test-suite/rv32im/references')
     elif (bin_file.find('rv32Zicsr') != -1):
-        files = list_ref_files(r'../../tests/riscv-compliance/riscv-test-suite/rv32Zicsr/references')
+        print('rv32Zicsr')
+        files = list_ref_files(r'../../../tinyriscv/tests/riscv-compliance/riscv-test-suite/rv32Zicsr/references')
     elif (bin_file.find('rv32Zifencei') != -1):
-        files = list_ref_files(r'../../tests/riscv-compliance/riscv-test-suite/rv32Zifencei/references')
+        print('rv32Zifencei')
+        files = list_ref_files(r'../../../tinyriscv/tests/riscv-compliance/riscv-test-suite/rv32Zifencei/references')
     else:
+        print('no valid isa !')
         return None
-
+        
     # 根据bin文件前缀找到对应的reference_output文件
     for file in files:
         if (file.find(prefix) != -1):
@@ -49,12 +55,14 @@ def main():
     #print(sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2])
 
     # 1.将bin文件转成mem文件
-    cmd = r'python ../../tools/BinToMem_CLI.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
+    cmd = r'python ../BinToMem_CLI.py' + ' ' + sys.argv[1] + ' ' + sys.argv[2]
     f = os.popen(cmd)
     f.close()
 
+    tb_file = r' /tb/compliance_test/compliance_test_tb.v'
+    proj = r' C:\Users\\newrz\Desktop\riscv\simple_riscv_soft_core'
     # 2.编译rtl文件
-    cmd = r'python ../compile_rtl.py' + r' ../..'
+    cmd = r'python ../compile_rtl.py' + proj  + tb_file
     f = os.popen(cmd)
     f.close()
 

@@ -4,8 +4,8 @@
 module mem_arbiter(
     input clk,
     input rst_n,
-    input bus_hold_i,
-    output mem_hold_o,
+//    input bus_hold_i,
+//    output mem_hold_o,
     input [`BUS_WIDTH - 1:0] rom_address,
     output [`DATA_WIDTH - 1: 0]  rom_rdata,
     output rom_addr_ok,
@@ -163,6 +163,6 @@ module mem_arbiter(
     assign ram_rdata = (state[2])?mem_rdata:32'd0;
     assign rom_rdata = (state[1])?mem_rdata:`INST_NOP;
 
-    assign  mem_hold_o =  bus_hold_i;
+//    assign  mem_hold_o =  bus_hold_i;
 
 endmodule
