@@ -192,11 +192,13 @@ module srambus2axi #(
     localparam [3:0]slave_0   = 4'b0000;
     localparam [3:0]slave_1   = 4'b0001;
     localparam [3:0]slave_2   = 4'b0010;
+    localparam [3:0]slave_3   = 4'b0011;
     localparam [3:0]slave_4   = 4'b0100;
     wire [1:0]grant;
 	wire slave_mem   = ((mem_address[31:28] == slave_0) || (mem_address[31:28] == slave_1))?1'b1:1'b0;
     wire slave_timer = ((mem_address[31:28] == slave_2) )?1'b1:1'b0;
     wire slave_gpio  = ((mem_address[31:28] == slave_4))?1'b1:1'b0;
+    wire slave_uart  = ((mem_address[31:28] == slave_3))?1'b1:1'b0;
 	
 	wire [ADDR_WIDTH -1:0] mem_address_remap = {{4'h0}, {mem_address[27:0]}};
 	
