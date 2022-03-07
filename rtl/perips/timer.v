@@ -43,7 +43,7 @@ module timer(
 
     reg read_data_ok;
     reg write_data_ok;
-    assign addr_ok = rst_n;
+    assign addr_ok = req_i;
     assign data_ok = read_data_ok | write_data_ok;
     // [0]: timer enable
     // [1]: timer int enable

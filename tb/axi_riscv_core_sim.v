@@ -12,6 +12,11 @@ module axi_riscv_core_sim();
     reg TMS;
     reg TDI;
     wire TDO;
+    reg uart_tx;
+    reg [7:0] mem_a [3:0];    
+    initial begin
+        $readmemh("F:/vivadoworkspace/Arty/tx.txt",mem_a);
+    end
     always #5 clk = ~clk;     // 50MHz
 
     wire [`DATA_WIDTH - 1: 0] x3;
@@ -29,6 +34,7 @@ module axi_riscv_core_sim();
         TCK = 1;
         TMS = 1;
         TDI = 1;
+        uart_tx = 1;
         rst_n = `RstEnable;
         r = 0;
         $display("test running...");
@@ -117,7 +123,7 @@ module axi_riscv_core_sim();
     wire spi_ss;
     wire spi_clk;
     assign spi_miso = 1'b0;
-    assign uart_rx_pin = 1'b1;
+    assign uart_rx_pin = uart_tx;
     axi_soc_top axi_soc_top_inst(
         .sys_clk(clk),
         .rst_ext_i(rst_n),
@@ -140,4 +146,41 @@ module axi_riscv_core_sim();
         .jtag_TDO(TDO)
 `endif
     );
+    
+        task tx_bit(
+    input [7:0]data
+);
+    integer i;
+    for (i = 0 ; i <10 ; i = i + 1) begin
+        case (i)
+            0: uart_tx <=  1'b0;
+            1: uart_tx <=  data[0];
+            2: uart_tx <=  data[1];
+            3: uart_tx <=  data[2];
+            4: uart_tx <=  data[3];
+            5: uart_tx <=  data[4];
+            6: uart_tx <=  data[5];
+            7: uart_tx <=  data[6];
+            8: uart_tx <=  data[7];
+            9: uart_tx <=   1'b1;
+            default:uart_tx <= 1'b1;
+        endcase
+        #8601;
+    end
+endtask
+
+task tx_byte();
+    integer i;
+      for (i = 0 ; i <4 ; i = i + 1) begin
+            tx_bit(mem_a[i]);
+      end
+endtask
+
+
+    initial begin
+        #100000
+        tx_byte();
+        #250000
+        tx_byte();
+    end
 endmodule

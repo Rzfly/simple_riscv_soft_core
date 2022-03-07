@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 `include "include.v"
-//`define PLL
+`define PLL
 `define JTAG
 
 module axi_soc_top(
@@ -59,6 +59,7 @@ module axi_soc_top(
     wire locked;
     reg lock_save;
     reg rst_internal;
+   
     clk_wiz_0 clk_wiz_0_inst(
       .clk_in1(sys_clk),
       .resetn(rst_ext_i),
@@ -178,7 +179,7 @@ module axi_soc_top(
     localparam  ID_WIDTH   = 6;
     
     //master 0 axi if
-	wire     [ADDR_WIDTH-1:0] m0_AWADDR;
+	wire     [ADDR_WIDTH - 1:0] m0_AWADDR;
 	wire	   [3:0]            m0_AWLEN;
 	wire       [2:0]            m0_AWSIZE;
 	wire       [1:0]	        m0_AWBURST;
@@ -425,6 +426,7 @@ module axi_soc_top(
     wire mem_hold_flag_o;
     wire ram_data_resp;
     wire rom_data_resp;
+    wire jump_req;
     assign core_int_flag = {7'd0, timer0_int};
 //    assign core_int_flag = {8'd0};
     riscv_core  riscv_core_inst(
@@ -442,6 +444,7 @@ module axi_soc_top(
         .ram_we(ram_we),
         .ram_re(ram_re),
         .rom_addr_ok(rom_addr_ok),
+        .jump_req(jump_req),
         .rom_data_ok(rom_data_ok),
         .ram_addr_ok(ram_addr_ok),
         .ram_data_ok(ram_data_ok),
@@ -468,12 +471,77 @@ module axi_soc_top(
         //jtag
 `endif
     );
-    membus2axi_single_axi#(
+//    membus2axi_single_axi#(
+//		.DATA_WIDTH(DATA_WIDTH),
+//		.ADDR_WIDTH(ADDR_WIDTH),
+//		.ID_WIDTH(ID_WIDTH),
+//		.STRB_WIDTH(DATA_WIDTH/8)
+//	)membus2axi_single_axi_inst(
+//		.ACLK(clk),
+//		.ARESETn(rst_n),
+		
+//		.AWADDR(m1_AWADDR),
+//		.AWLEN(m1_AWLEN),
+//		.AWSIZE(m1_AWSIZE), //length. less than the width of bus b'010
+//		.AWBURST(m1_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
+//		.AWID(m1_AWID),
+//		.AWVALID(m1_AWVALID),
+//		.AWREADY(m1_AWREADY),
+		
+//		.WDATA(m1_WDATA),
+//		.WSTRB(m1_WSTRB),
+//		.WLAST(m1_WLAST),
+//		.WID(m1_WID),
+//		.WVALID(m1_WVALID),
+//		.WREADY(m1_WREADY),
+		
+//		.BRESP(m1_BRESP),
+//		.BID(m1_BID),
+//		.BVALID(m1_BVALID),
+//		.BREADY(m1_BREADY),
+
+//		.ARADDR(m1_ARADDR),
+//		.ARLEN(m1_ARLEN),
+//		.ARSIZE(m1_ARSIZE),
+//		.ARBURST(m1_ARBURST),
+//		.ARID(m1_ARID),
+//		.ARVALID(m1_ARVALID),
+//		.ARREADY(m1_ARREADY),
+		
+//		.RDATA(m1_RDATA),
+//		.RRESP(m1_RRESP),
+//		.RLAST(m1_RLAST),
+//		.RID(m1_RID),
+//		.RVALID(m1_RVALID),
+//		.RREADY(m1_RREADY),
+
+//	    //interface to srambus_master
+//        .rom_address(rom_address),
+//        .rom_rdata(rom_rdata),
+//        .rom_addr_ok(rom_addr_ok),
+//        .rom_data_ok(rom_data_ok),
+//        .jump_req(jump_req),
+//        .rom_req(rom_req),
+//        .rom_data_resp(rom_data_resp),
+        
+//        .ram_address(ram_address),
+//        .ram_wdata(ram_wdata),
+//        .ram_wmask(ram_wmask),
+//        .ram_rdata(ram_rdata),
+//        .ram_addr_ok(ram_addr_ok),
+//        .ram_data_ok(ram_data_ok),
+//        .ram_data_resp(ram_data_resp),
+//        .ram_req(ram_req),
+//        .ram_re(ram_re),
+//        .ram_we(ram_we)
+//	);
+
+    membus2axi#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
 		.ID_WIDTH(ID_WIDTH),
 		.STRB_WIDTH(DATA_WIDTH/8)
-	)membus2axi_single_axi_inst(
+	)membus2axi_inst(
 		.ACLK(clk),
 		.ARESETn(rst_n),
 		
@@ -512,6 +580,21 @@ module axi_soc_top(
 		.RVALID(m1_RVALID),
 		.RREADY(m1_RREADY),
 
+		.m0_ARADDR(m0_ARADDR),
+		.m0_ARLEN(m0_ARLEN),
+		.m0_ARSIZE(m0_ARSIZE),
+		.m0_ARBURST(m0_ARBURST),
+		.m0_ARID(m0_ARID),
+		.m0_ARVALID(m0_ARVALID),
+		.m0_ARREADY(m0_ARREADY),
+		
+		.m0_RDATA(m0_RDATA),
+		.m0_RRESP(m0_RRESP),
+		.m0_RLAST(m0_RLAST),
+		.m0_RID(m0_RID),
+		.m0_RVALID(m0_RVALID),
+		.m0_RREADY(m0_RREADY),
+
 	    //interface to srambus_master
         .rom_address(rom_address),
         .rom_rdata(rom_rdata),
@@ -531,294 +614,226 @@ module axi_soc_top(
         .ram_re(ram_re),
         .ram_we(ram_we)
 	);
-    wire s0_ARREADY_test;
-//  axi_arbiter#(
-//    .DATA_WIDTH(32),
-//    .ADDR_WIDTH(32), 
-//    .ID_WIDTH(6)
-//    )axi_arbiter_inst(
-//        .ACLK(clk),
-//        .ARESETn(rst_n),
-        
-//        .m0_AWADDR('d0),
-//        .m0_AWLEN('d0),
-//        .m0_AWSIZE('d0),
-//        .m0_AWBURST('d0),
-//        .m0_AWID('d0),
-//        .m0_AWVALID('d0),
-//        .m0_AWREADY(m0_AWREADY),
-        
-//         .m0_WDATA('d0),
-//         .m0_WSTRB('d0),
-//         .m0_WLAST('d0),
-//         .m0_WID('d0),
-//         .m0_WVALID('d0),
-//         .m0_WREADY(m0_WREADY),
-         
-//         .m0_BRESP(m0_BRESP),
-//         .m0_BID(m0_BID),
-//         .m0_BVALID(m0_BVALID),
-//         .m0_BREADY('d0),
-         
-//         .m0_ARADDR(m0_ARADDR),
-//         .m0_ARLEN(m0_ARLEN),
-//         .m0_ARSIZE(m0_ARSIZE),
-//         .m0_ARBURST(m0_ARBURST),
-//         .m0_ARID(m0_ARID),
-//         .m0_ARVALID(m0_ARVALID),
-//         .m0_ARREADY(m0_ARREADY),
-         
-//         .m0_RDATA(m0_RDATA),
-//         .m0_RRESP(m0_RRESP),
-//         .m0_RLAST(m0_RLAST),
-//         .m0_RID(m0_RID),
-//         .m0_RVALID(m0_RVALID),
-//         .m0_RREADY(m0_RREADY),
-         
-//         .m1_AWADDR(m1_AWADDR),
-//         .m1_AWLEN(m1_AWLEN),
-//         .m1_AWSIZE(m1_AWSIZE),
-//         .m1_AWBURST(m1_AWBURST),
-//         .m1_AWID(m1_AWID),
-//         .m1_AWVALID(m1_AWVALID),
-//         .m1_AWREADY(m1_AWREADY),
-        
-//         .m1_WDATA(m1_WDATA),
-//         .m1_WSTRB(m1_WSTRB),
-//         .m1_WLAST(m1_WLAST),
-//         .m1_WID(m1_WID),
-//         .m1_WVALID(m1_WVALID),
-//         .m1_WREADY(m1_WREADY),
-        
-//         .m1_BRESP(m1_BRESP),
-//         .m1_BID(m1_BID),
-//         .m1_BVALID(m1_BVALID),
-//         .m1_BREADY(m1_BREADY),
-        
-//         .m1_ARADDR(m1_ARADDR),
-//         .m1_ARLEN(m1_ARLEN),
-//         .m1_ARSIZE(m1_ARSIZE),
-//         .m1_ARBURST(m1_ARBURST),
-//         .m1_ARID(m1_ARID),
-//         .m1_ARVALID(m1_ARVALID),
-//         .m1_ARREADY(m1_ARREADY),
-        
-//	     .m1_RDATA(m1_RDATA),
-//	     .m1_RRESP(m1_RRESP),
-//	     .m1_RLAST(m1_RLAST),
-//	     .m1_RID(m1_RID),
-//	     .m1_RVALID(m1_RVALID),
-//	     .m1_RREADY(m1_RREADY),
-	    
-//	     .m2_AWADDR('d0),
-//	     .m2_AWLEN('d0),
-//	     .m2_AWSIZE('d0),
-//	     .m2_AWBURST('d0),
-//	     .m2_AWID('d0),
-//	     .m2_AWVALID('d0),
-//	     .m2_AWREADY(m2_AWREADY),
-	     
-//         .m2_WDATA('d0),
-//         .m2_WSTRB('d0),
-//         .m2_WLAST('d0),
-//         .m2_WID('d0),
-//         .m2_WVALID('d0),
-//         .m2_WREADY(m2_WREADY),
-         
-//	     .m2_BRESP(m2_BRESP),
-//	     .m2_BID(m2_BID),
-//	     .m2_BVALID(m2_BVALID),
-//	     .m2_BREADY('d0),
-	    
-//	     .m2_ARADDR('d0),
-//	     .m2_ARLEN('d0),
-//	     .m2_ARSIZE('d0),
-//	     .m2_ARBURST('d0),
-//	     .m2_ARID('d0),
-//	     .m2_ARVALID('d0),
-//	     .m2_ARREADY(m2_ARREADY),
-	     
-//	     .m2_RDATA(m2_RDATA),
-//	     .m2_RRESP(m2_RRESP),
-//	     .m2_RLAST(m2_RLAST),
-//	     .m2_RID(m2_RID),
-//	     .m2_RVALID(m2_RVALID),
-//	     .m2_RREADY('d0),
+    
 
-////         .m1_AWADDR(m1_AWADDR),
-////         .m1_AWLEN(m1_AWLEN),
-////         .m1_AWSIZE(m1_AWSIZE),
-////         .m1_AWBURST(m1_AWBURST),
-////         .m1_AWID(m1_AWID),
-////         .m1_AWVALID(m1_AWVALID),
-////         .m1_AWREADY(m1_AWREADY),
+  axi_arbiter#(
+    .DATA_WIDTH(32),
+    .ADDR_WIDTH(32), 
+    .ID_WIDTH(6)
+    )axi_arbiter_inst(
+        .ACLK(clk),
+        .ARESETn(rst_n),
         
-////         .m1_WDATA(m1_WDATA),
-////         .m1_WSTRB(m1_WSTRB),
-////         .m1_WLAST(m1_WLAST),
-////         .m1_WID(m1_WID),
-////         .m1_WVALID(m1_WVALID),
-////         .m1_WREADY(m1_WREADY),
+        .m0_AWADDR(32'd0),
+        .m0_AWLEN(4'd0),
+        .m0_AWSIZE(3'd0),
+        .m0_AWBURST(2'd0),
+        .m0_AWID(6'd0),
+        .m0_AWVALID(1'd0),
+        .m0_AWREADY(m0_AWREADY),
         
-////         .m1_BRESP(m1_BRESP),
-////         .m1_BID(m1_BID),
-////         .m1_BVALID(m1_BVALID),
-////         .m1_BREADY(m1_BREADY),
+         .m0_WDATA(32'd0),
+         .m0_WSTRB(4'd0),
+         .m0_WLAST(1'd0),
+         .m0_WID(6'd0),
+         .m0_WVALID(1'd0),
+         .m0_WREADY(m0_WREADY),
+         
+         .m0_BRESP(m0_BRESP),
+         .m0_BID(m0_BID),
+         .m0_BVALID(m0_BVALID),
+         .m0_BREADY(1'd0),
+         
+         .m0_ARADDR(m0_ARADDR),
+         .m0_ARLEN(m0_ARLEN),
+         .m0_ARSIZE(m0_ARSIZE),
+         .m0_ARBURST(m0_ARBURST),
+         .m0_ARID(m0_ARID),
+         .m0_ARVALID(m0_ARVALID),
+         .m0_ARREADY(m0_ARREADY),
+         
+         .m0_RDATA(m0_RDATA),
+         .m0_RRESP(m0_RRESP),
+         .m0_RLAST(m0_RLAST),
+         .m0_RID(m0_RID),
+         .m0_RVALID(m0_RVALID),
+         .m0_RREADY(m0_RREADY),
+         
+         .m1_AWADDR(m1_AWADDR),
+         .m1_AWLEN(m1_AWLEN),
+         .m1_AWSIZE(m1_AWSIZE),
+         .m1_AWBURST(m1_AWBURST),
+         .m1_AWID(m1_AWID),
+         .m1_AWVALID(m1_AWVALID),
+         .m1_AWREADY(m1_AWREADY),
         
-////         .m1_ARADDR(m1_ARADDR),
-////         .m1_ARLEN(m1_ARLEN),
-////         .m1_ARSIZE(m1_ARSIZE),
-////         .m1_ARBURST(m1_ARBURST),
-////         .m1_ARID(m1_ARID),
-////         .m1_ARVALID(m1_ARVALID),
-////         .m1_ARREADY(m1_ARREADY),
+         .m1_WDATA(m1_WDATA),
+         .m1_WSTRB(m1_WSTRB),
+         .m1_WLAST(m1_WLAST),
+         .m1_WID(m1_WID),
+         .m1_WVALID(m1_WVALID),
+         .m1_WREADY(m1_WREADY),
         
-////	     .m1_RDATA(m1_RDATA),
-////	     .m1_RRESP(m1_RRESP),
-////	     .m1_RLAST(m1_RLAST),
-////	     .m1_RID(m1_RID),
-////	     .m1_RVALID(m1_RVALID),
-////	     .m1_RREADY(m1_RREADY),
+         .m1_BRESP(m1_BRESP),
+         .m1_BID(m1_BID),
+         .m1_BVALID(m1_BVALID),
+         .m1_BREADY(m1_BREADY),
+        
+         .m1_ARADDR(m1_ARADDR),
+         .m1_ARLEN(m1_ARLEN),
+         .m1_ARSIZE(m1_ARSIZE),
+         .m1_ARBURST(m1_ARBURST),
+         .m1_ARID(m1_ARID),
+         .m1_ARVALID(m1_ARVALID),
+         .m1_ARREADY(m1_ARREADY),
+        
+	     .m1_RDATA(m1_RDATA),
+	     .m1_RRESP(m1_RRESP),
+	     .m1_RLAST(m1_RLAST),
+	     .m1_RID(m1_RID),
+	     .m1_RVALID(m1_RVALID),
+	     .m1_RREADY(m1_RREADY),
 	    
-////	     .m2_AWADDR(m2_AWADDR),
-////	     .m2_AWLEN(m2_AWLEN),
-////	     .m2_AWSIZE(m2_AWSIZE),
-////	     .m2_AWBURST(m2_AWBURST),
-////	     .m2_AWID(m2_AWID),
-////	     .m2_AWVALID(m2_AWVALID),
-////	     .m2_AWREADY(m2_AWREADY),
+	    
+         .m2_AWADDR(m2_AWADDR),
+	     .m2_AWLEN(m2_AWLEN),
+	     .m2_AWSIZE(m2_AWSIZE),
+	     .m2_AWBURST(m2_AWBURST),
+	     .m2_AWID(m2_AWID),
+	     .m2_AWVALID(m2_AWVALID),
+	     .m2_AWREADY(m2_AWREADY),
 	     
-////         .m2_WDATA(m2_WDATA),
-////         .m2_WSTRB(m2_WSTRB),
-////         .m2_WLAST(m2_WLAST),
-////         .m2_WID(m2_WID),
-////         .m2_WVALID(m2_WVALID),
-////         .m2_WREADY(m2_WREADY),
-////	     .m2_BRESP(m2_BRESP),
-////	     .m2_BID(m2_BID),
-////	     .m2_BVALID(m2_BVALID),
-////	     .m2_BREADY(m2_BREADY),
+         .m2_WDATA(m2_WDATA),
+         .m2_WSTRB(m2_WSTRB),
+         .m2_WLAST(m2_WLAST),
+         .m2_WID(m2_WID),
+         .m2_WVALID(m2_WVALID),
+         .m2_WREADY(m2_WREADY),
+	     .m2_BRESP(m2_BRESP),
+	     .m2_BID(m2_BID),
+	     .m2_BVALID(m2_BVALID),
+	     .m2_BREADY(m2_BREADY),
 	    
-////	     .m2_ARADDR(m2_ARADDR),
-////	     .m2_ARLEN(m2_ARLEN),
-////	     .m2_ARSIZE(m2_ARSIZE),
-////	     .m2_ARBURST(m2_ARBURST),
-////	     .m2_ARID(m2_ARID),
-////	     .m2_ARVALID(m2_ARVALID),
-////	     .m2_ARREADY(m2_ARREADY),
-////	     .m2_RDATA(m2_RDATA),
-////	     .m2_RRESP(m2_RRESP),
-////	     .m2_RLAST(m2_RLAST),
-////	     .m2_RID(m2_RID),
-////	     .m2_RVALID(m2_RVALID),
-////	     .m2_RREADY(m2_RREADY),
-
-//       	 .s0_AWADDR(s0_AWADDR),
-//       	 .s0_AWBURST(s0_AWBURST),
-//    	 .s0_AWLEN(s0_AWLEN),
-//    	 .s0_WSTRB(s0_WSTRB),
-//    	 .s0_AWSIZE(s0_AWSIZE),
-//    	 .s0_AWID(s0_AWID),
-//    	 .s0_AWVALID(s0_AWVALID),
-//         .s0_AWREADY(s0_AWREADY),
-//         .s0_WDATA(s0_WDATA),
-//         .s0_WLAST(s0_WLAST),
-//         .s0_WID(s0_WID),
-//         .s0_WVALID(s0_WVALID),
-//         .s0_WREADY(s0_WREADY),
+	     .m2_ARADDR(m2_ARADDR),
+	     .m2_ARLEN(m2_ARLEN),
+	     .m2_ARSIZE(m2_ARSIZE),
+	     .m2_ARBURST(m2_ARBURST),
+	     .m2_ARID(m2_ARID),
+	     .m2_ARVALID(m2_ARVALID),
+	     .m2_ARREADY(m2_ARREADY),
+	     .m2_RDATA(m2_RDATA),
+	     .m2_RRESP(m2_RRESP),
+	     .m2_RLAST(m2_RLAST),
+	     .m2_RID(m2_RID),
+	     .m2_RVALID(m2_RVALID),
+	     .m2_RREADY(m2_RREADY),
+	     
+       	 .s0_AWADDR(s0_AWADDR),
+       	 .s0_AWBURST(s0_AWBURST),
+    	 .s0_AWLEN(s0_AWLEN),
+    	 .s0_WSTRB(s0_WSTRB),
+    	 .s0_AWSIZE(s0_AWSIZE),
+    	 .s0_AWID(s0_AWID),
+    	 .s0_AWVALID(s0_AWVALID),
+         .s0_AWREADY(s0_AWREADY),
+         .s0_WDATA(s0_WDATA),
+         .s0_WLAST(s0_WLAST),
+         .s0_WID(s0_WID),
+         .s0_WVALID(s0_WVALID),
+         .s0_WREADY(s0_WREADY),
     
-//         .s0_BRESP(s0_BRESP),
-//         .s0_BID(s0_BID),
-//         .s0_BVALID(s0_BVALID),
-//         .s0_BREADY(s0_BREADY),
+         .s0_BRESP(s0_BRESP),
+         .s0_BID(s0_BID),
+         .s0_BVALID(s0_BVALID),
+         .s0_BREADY(s0_BREADY),
     
-//         .s0_ARADDR(s0_ARADDR),
-//         .s0_ARLEN(s0_ARLEN),
-//         .s0_ARSIZE(s0_ARSIZE),
-//         .s0_ARBURST(s0_ARBURST),
-//         .s0_ARID(s0_ARID),
-//         .s0_ARVALID(s0_ARVALID),
-//         .s0_ARREADY(s0_ARREADY_test),
+         .s0_ARADDR(s0_ARADDR),
+         .s0_ARLEN(s0_ARLEN),
+         .s0_ARSIZE(s0_ARSIZE),
+         .s0_ARBURST(s0_ARBURST),
+         .s0_ARID(s0_ARID),
+         .s0_ARVALID(s0_ARVALID),
+         .s0_ARREADY(s0_ARREADY),
     
-//         .s0_RDATA(s0_RDATA),
-//         .s0_RLAST(s0_RLAST),
-//         .s0_RRESP(s0_RRESP),
-//         .s0_RID(s0_RID),
-//         .s0_RVALID(s0_RVALID),
-//         .s0_RREADY(s0_RREADY),
+         .s0_RDATA(s0_RDATA),
+         .s0_RLAST(s0_RLAST),
+         .s0_RRESP(s0_RRESP),
+         .s0_RID(s0_RID),
+         .s0_RVALID(s0_RVALID),
+         .s0_RREADY(s0_RREADY),
     
-//	    //s1
-//	     .s1_AWADDR(s1_AWADDR),
-//	     .s1_AWBURST(s1_AWBURST),
-//	     .s1_AWLEN(s1_AWLEN),
-//	     .s1_WSTRB(s1_WSTRB),
-//	     .s1_AWSIZE(s1_AWSIZE),
-//	     .s1_AWID(s1_AWID),
-//	     .s1_AWVALID(s1_AWVALID),
-//	     .s1_AWREADY(s1_AWREADY),
+	    //s1
+	     .s1_AWADDR(s1_AWADDR),
+	     .s1_AWBURST(s1_AWBURST),
+	     .s1_AWLEN(s1_AWLEN),
+	     .s1_WSTRB(s1_WSTRB),
+	     .s1_AWSIZE(s1_AWSIZE),
+	     .s1_AWID(s1_AWID),
+	     .s1_AWVALID(s1_AWVALID),
+	     .s1_AWREADY(s1_AWREADY),
     
-//         .s1_WDATA(s1_WDATA),
-//         .s1_WLAST(s1_WLAST),
-//         .s1_WID(s1_WID),
-//         .s1_WVALID(s1_WVALID),
-//         .s1_WREADY(s1_WREADY),
+         .s1_WDATA(s1_WDATA),
+         .s1_WLAST(s1_WLAST),
+         .s1_WID(s1_WID),
+         .s1_WVALID(s1_WVALID),
+         .s1_WREADY(s1_WREADY),
     
-//         .s1_BRESP(s1_BRESP),
-//         .s1_BID(s1_BID),
-//         .s1_BVALID(s1_BVALID),
-//         .s1_BREADY(s1_BREADY),
+         .s1_BRESP(s1_BRESP),
+         .s1_BID(s1_BID),
+         .s1_BVALID(s1_BVALID),
+         .s1_BREADY(s1_BREADY),
     
-//         .s1_ARADDR(s1_ARADDR),
-//         .s1_ARLEN(s1_ARLEN),
-//         .s1_ARSIZE(s1_ARSIZE),
-//         .s1_ARBURST(s1_ARBURST),
-//         .s1_ARID(s1_ARID),
-//         .s1_ARVALID(s1_ARVALID),
-//         .s1_ARREADY(s1_ARREADY),
+         .s1_ARADDR(s1_ARADDR),
+         .s1_ARLEN(s1_ARLEN),
+         .s1_ARSIZE(s1_ARSIZE),
+         .s1_ARBURST(s1_ARBURST),
+         .s1_ARID(s1_ARID),
+         .s1_ARVALID(s1_ARVALID),
+         .s1_ARREADY(s1_ARREADY),
     
-//         .s1_RDATA(s1_RDATA),
-//         .s1_RLAST(s1_RLAST),
-//         .s1_RRESP(s1_RRESP),
-//         .s1_RID(s1_RID),
-//         .s1_RVALID(s1_RVALID),
-//         .s1_RREADY(s1_RREADY),
+         .s1_RDATA(s1_RDATA),
+         .s1_RLAST(s1_RLAST),
+         .s1_RRESP(s1_RRESP),
+         .s1_RID(s1_RID),
+         .s1_RVALID(s1_RVALID),
+         .s1_RREADY(s1_RREADY),
      
-//        //s2
-//         .s2_AWADDR(s2_AWADDR),
-//         .s2_AWBURST(s2_AWBURST),
-//         .s2_AWLEN(s2_AWLEN),
-//         .s2_WSTRB(s2_WSTRB),
-//         .s2_AWSIZE(s2_AWSIZE),
-//         .s2_AWID(s2_AWID),
-//         .s2_AWVALID(s2_AWVALID),
-//         .s2_AWREADY(s2_AWREADY),
+        //s2
+         .s2_AWADDR(s2_AWADDR),
+         .s2_AWBURST(s2_AWBURST),
+         .s2_AWLEN(s2_AWLEN),
+         .s2_WSTRB(s2_WSTRB),
+         .s2_AWSIZE(s2_AWSIZE),
+         .s2_AWID(s2_AWID),
+         .s2_AWVALID(s2_AWVALID),
+         .s2_AWREADY(s2_AWREADY),
         
-//        .s2_WDATA(s2_WDATA),
-//        .s2_WLAST(s2_WLAST),
-//        .s2_WID(s2_WID),
-//        .s2_WVALID(s2_WVALID),
-//        .s2_WREADY(s2_WREADY),
+        .s2_WDATA(s2_WDATA),
+        .s2_WLAST(s2_WLAST),
+        .s2_WID(s2_WID),
+        .s2_WVALID(s2_WVALID),
+        .s2_WREADY(s2_WREADY),
     
-//        .s2_BRESP(s2_BRESP),
-//        .s2_BID(s2_BID),
-//        .s2_BVALID(s2_BVALID),
-//        .s2_BREADY(s2_BREADY),
+        .s2_BRESP(s2_BRESP),
+        .s2_BID(s2_BID),
+        .s2_BVALID(s2_BVALID),
+        .s2_BREADY(s2_BREADY),
     
-//        .s2_ARADDR(s2_ARADDR),
-//        .s2_ARLEN(s2_ARLEN),
-//        .s2_ARSIZE(s2_ARSIZE),
-//        .s2_ARBURST(s2_ARBURST),
-//        .s2_ARID(s2_ARID),
-//        .s2_ARVALID(s2_ARVALID),
-//        .s2_ARREADY(s2_ARREADY),
+        .s2_ARADDR(s2_ARADDR),
+        .s2_ARLEN(s2_ARLEN),
+        .s2_ARSIZE(s2_ARSIZE),
+        .s2_ARBURST(s2_ARBURST),
+        .s2_ARID(s2_ARID),
+        .s2_ARVALID(s2_ARVALID),
+        .s2_ARREADY(s2_ARREADY),
     
-//        .s2_RDATA(s2_RDATA),
-//        .s2_RLAST(s2_RLAST),
-//        .s2_RRESP(s2_RRESP),
-//        .s2_RID(s2_RID),
-//        .s2_RVALID(s2_RVALID),
-//        .s2_RREADY(s2_RREADY)
-//);
+        .s2_RDATA(s2_RDATA),
+        .s2_RLAST(s2_RLAST),
+        .s2_RRESP(s2_RRESP),
+        .s2_RID(s2_RID),
+        .s2_RVALID(s2_RVALID),
+        .s2_RREADY(s2_RREADY)
+);
 
     // gpio
     wire[1:0] io_in;
@@ -1098,51 +1113,6 @@ module axi_soc_top(
 		.mem_data_ok(m2_data_ok)
 	);
 //	wire ARREADY_test;
-//   AXI_DUELPORTSRAM#(
-//		.DATA_WIDTH(DATA_WIDTH),
-//		.ADDR_WIDTH(ADDR_WIDTH),
-//		.ID_WIDTH(ID_WIDTH),
-//		.STRB_WIDTH(DATA_WIDTH/8)
-//	)AXI_DUELPORTSRAM_inst(
-//		.ACLK(clk),
-//		.ARESETn(rst_n),
-		
-//		.AWADDR(s0_AWADDR),
-//		.AWLEN(s0_AWLEN),
-//		.AWSIZE(s0_AWSIZE), //length. less than the width of bus b'010
-//		.AWBURST(s0_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
-//		.AWID(s0_AWID),
-//		.AWVALID(s0_AWVALID),
-//		.AWREADY(s0_AWREADY),
-		
-//		.WDATA(s0_WDATA),
-//		.WSTRB(s0_WSTRB),
-//		.WLAST(s0_WLAST),
-//		.WID(s0_WID),
-//		.WVALID(s0_WVALID),
-//		.WREADY(s0_WREADY),
-		
-//		.BRESP(s0_BRESP),
-//		.BID(s0_BID),
-//		.BVALID(s0_BVALID),
-//		.BREADY(s0_BREADY),
-
-//		.ARADDR(s0_ARADDR),
-//		.ARLEN(s0_ARLEN),
-//		.ARSIZE(s0_ARSIZE),
-//		.ARBURST(s0_ARBURST),
-//		.ARID(s0_ARID),
-//		.ARVALID(s0_ARVALID),
-//		.ARREADY(s0_ARREADY_test),
-		
-//		.RDATA(s0_RDATA),
-//		.RRESP(s0_RRESP),
-//		.RLAST(s0_RLAST),
-//		.RID(s0_RID),
-//		.RVALID(s0_RVALID),
-//		.RREADY(s0_RREADY)
-//	);
-		wire ARREADY_test;
    AXI_DUELPORTSRAM#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
@@ -1152,41 +1122,40 @@ module axi_soc_top(
 		.ACLK(clk),
 		.ARESETn(rst_n),
 		
-		.AWADDR(m1_AWADDR),
-		.AWLEN(m1_AWLEN),
-		.AWSIZE(m1_AWSIZE), //length. less than the width of bus b'010
-		.AWBURST(m1_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
-		.AWID(m1_AWID),
-		.AWVALID(m1_AWVALID),
-		.AWREADY(m1_AWREADY),
+		.AWADDR(s0_AWADDR),
+		.AWLEN(s0_AWLEN),
+		.AWSIZE(s0_AWSIZE), //length. less than the width of bus b'010
+		.AWBURST(s0_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
+		.AWID(s0_AWID),
+		.AWVALID(s0_AWVALID),
+		.AWREADY(s0_AWREADY),
 		
-		.WDATA(m1_WDATA),
-		.WSTRB(m1_WSTRB),
-		.WLAST(m1_WLAST),
-		.WID(m1_WID),
-		.WVALID(m1_WVALID),
-		.WREADY(m1_WREADY),
+		.WDATA(s0_WDATA),
+		.WSTRB(s0_WSTRB),
+		.WLAST(s0_WLAST),
+		.WID(s0_WID),
+		.WVALID(s0_WVALID),
+		.WREADY(s0_WREADY),
 		
-		.BRESP(m1_BRESP),
-		.BID(m1_BID),
-		.BVALID(m1_BVALID),
-		.BREADY(m1_BREADY),
+		.BRESP(s0_BRESP),
+		.BID(s0_BID),
+		.BVALID(s0_BVALID),
+		.BREADY(s0_BREADY),
 
-		.ARADDR(m1_ARADDR),
-		.ARLEN(m1_ARLEN),
-		.ARSIZE(m1_ARSIZE),
-		.ARBURST(m1_ARBURST),
-		.ARID(m1_ARID),
-		.ARVALID(m1_ARVALID),
-		.ARREADY(m1_ARREADY),
+		.ARADDR(s0_ARADDR),
+		.ARLEN(s0_ARLEN),
+		.ARSIZE(s0_ARSIZE),
+		.ARBURST(s0_ARBURST),
+		.ARID(s0_ARID),
+		.ARVALID(s0_ARVALID),
+		.ARREADY(s0_ARREADY),
 		
-		.RDATA(m1_RDATA),
-		.RRESP(m1_RRESP),
-		.RLAST(m1_RLAST),
-		.RID(m1_RID),
-		.RVALID(m1_RVALID),
-		.RREADY(m1_RREADY)
+		.RDATA(s0_RDATA),
+		.RRESP(s0_RRESP),
+		.RLAST(s0_RLAST),
+		.RID(s0_RID),
+		.RVALID(s0_RVALID),
+		.RREADY(s0_RREADY)
 	);
-	
-    
+
 endmodule

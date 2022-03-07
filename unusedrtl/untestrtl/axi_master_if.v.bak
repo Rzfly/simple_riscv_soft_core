@@ -1,0 +1,250 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 02/03/2022 05:10:04 PM
+// Design Name: 
+// Module Name: axi_slave_if
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+`include "include.v"
+
+module srambus2axi #(
+  parameter   DATA_WIDTH  = 32,             //数据位宽
+  parameter   ADDR_WIDTH  = 32,               //地址位宽              
+  parameter   ID_WIDTH    = 4,               //ID位宽
+  parameter   STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
+)(
+    /********* clock & reset *********/
+	input                       ACLK,
+	input      	                ARESETn,
+	/******** AXI ********/
+    // write address channel
+	output     [ID_WIDTH-1:0]   AWID,
+	output	   [ADDR_WIDTH-1:0] AWADDR,
+	output	   [3:0]            AWLEN,
+	output	   [2:0]            AWSIZE,
+	output	   [1:0]	        AWBURST,
+	output	 	                AWVALID,
+	input    	                AWREADY,
+    // write data channel
+	output	   [ID_WIDTH-1:0]   WID,
+	output	   [DATA_WIDTH-1:0] WDATA,
+	output	   [STRB_WIDTH-1:0] WSTRB,
+	output		                WLAST,
+	output	  	                WVALID,
+	input    	                WREADY,
+    // write resp channel
+	input      [ID_WIDTH-1:0]   BID,
+	input      [1:0]            BRESP,
+	input    	                BVALID,
+	output	  	                BREADY,
+    // read address channel
+	output	   [ID_WIDTH-1:0]   ARID,
+	output	   [ADDR_WIDTH-1:0] ARADDR,
+	output	   [3:0]            ARLEN,
+	output	   [2:0]	        ARSIZE,
+	output	   [1:0]	        ARBURST,
+	input	  	                ARVALID,
+	output    	                ARREADY,
+    // read data channel
+	input     [ID_WIDTH-1:0]	RID,
+	input     [DATA_WIDTH-1:0]	RDATA,
+	input     [1:0]	        	RRESP,
+	input    	                RLAST,
+	input                       RVALID,
+	output	 	                RREADY,
+    /********* SRAM *********/
+	//数据输入
+    input [`BUS_WIDTH - 1:0] rom_address,
+    output [`DATA_WIDTH - 1: 0]  rom_rdata,
+    output rom_addr_ok,
+    output rom_data_ok,
+    input rom_req,
+    
+    input [`BUS_WIDTH - 1:0]ram_address,
+    input [`DATA_WIDTH - 1: 0]ram_wdata,
+    input [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
+    output [`DATA_WIDTH - 1: 0]    ram_rdata,
+    output ram_addr_ok,
+    output ram_data_ok,
+    input ram_req,
+    input ram_re,
+    input ram_we,
+);  
+
+    //=========================================================
+
+	wire			    		wen;
+	wire  [3:0]					wmask;
+	wire  [2:0]					awsize;
+	wire  [ADDR_WIDTH -1:0]		awaddr;
+	wire  [DATA_WIDTH-1:0] 		wdata;
+	wire                		waddr_ok;
+	wire                		wdata_ok;
+	wire			      		writing;
+	wire 	[ADDR_WIDTH -1:0]  	last_write_address;
+
+		/********** sram **********/
+	wire     [DATA_WIDTH-1:0]	sram_rdata;
+	wire	   [ID_WIDTH-1:0]	rid;
+	wire    					ren;
+	wire      [ID_WIDTH-1:0]	arid;
+	wire      [2:0]				arsize;
+	wire      [ADDR_WIDTH-1:0]  araddr;
+	wire 						raddr_ok;
+	wire 						rdata_ok;
+	
+    //=========================================================
+    //写通道例化
+    axi_w_channel_master#(
+		.DATA_WIDTH(DATA_WIDTH),
+		.ADDR_WIDTH(ADDR_WIDTH),
+		.ID_WIDTH(ID_WIDTH),
+		.STRB_WIDTH(DATA_WIDTH/8)
+	)axi_w_channel_master_inst(
+		.ACLK(ACLK),
+		.ARESETn(ARESETn),
+		.AWADDR(AWADDR),
+		.AWVALID(AWVALID),
+		.AWREADY(AWREADY),
+		.AWLEN(AWLEN),
+		.AWSIZE(AWSIZE), //length. less than the width of bus b'010
+		.AWBURST(AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
+		.WDATA(WDATA),
+		.WSTRB(WSTRB),
+		.WVALID(WSTRB),
+		.WLAST(WLAST),
+		.WREADY(WREADY),
+		.BRESP(BRESP),
+		.BREADY(BREADY),
+		.BVALID(BVALID),
+
+
+	    //interface to srambus_master
+		.wen(wen),
+		.wmask(wmask),
+		.awsize(awsize),
+		.awaddr(awaddr),
+		.wdata(wdata),
+		.waddr_ok(waddr_ok),
+		.wdata_ok(wdata_ok),
+		.writing(writing),
+		.last_write_address(last_write_address)
+	);
+		
+
+		//=========================================================
+		//读通道例化
+	axi_r_channel_master#(
+		.DATA_WIDTH(DATA_WIDTH),
+		.ADDR_WIDTH(ADDR_WIDTH),
+		.ID_WIDTH(ID_WIDTH),
+		.STRB_WIDTH(DATA_WIDTH/8)
+	)axi_r_channel_master_inst(
+		.ACLK(ACLK),
+		.ARESETn(ARESETn),
+		.ARADDR(ARADDR),
+		.ARLEN(ARLEN),
+		.ARSIZE(ARSIZE),
+		.ARBURST(ARBURST),
+		.ARVALID(ARVALID),
+		.ARREADY(ARREADY),
+		.RDATA(RDATA),
+		.RRESP(RRESP),
+		.RLAST(RLAST),
+		.RVALID(RVALID),
+		.RREADY(RREADY),
+
+		.sram_rdata(sram_rdata),
+		.ren(ren),
+		.rid(rid)
+		.arid(arid)
+		.arsize(arsize),
+		.araddr(araddr)
+		.raddr_ok(raddr_ok)
+		.rdata_ok(rdata_ok)
+	);
+
+	wire			    		wen;
+	wire  [3:0]					wmask;
+	wire  [2:0]					awsize;
+	wire  [ADDR_WIDTH -1:0]		awaddr;
+	wire  [DATA_WIDTH-1:0] 		wdata;
+	wire                		waddr_ok;
+	wire                		wdata_ok;
+	wire			      		writing;
+	wire 	[ADDR_WIDTH -1:0]  	last_write_address;
+
+		/********** sram **********/
+	wire     [DATA_WIDTH-1:0]	sram_rdata;
+	wire	   [ID_WIDTH-1:0]	rid;
+	wire    					ren;
+	wire      [ID_WIDTH-1:0]	arid;
+	wire      [2:0]				arsize;
+	wire      [ADDR_WIDTH-1:0]  araddr;
+	wire 						raddr_ok;
+	wire 						rdata_ok;
+	
+	wire [2:0]grant;
+	wire read_disable;
+	wire read_req;
+	
+	assign grant[2] = ram_req && ram_we;
+	assign grant[1] = ram_req && ram_re;
+	assign grant[0] = rom_req && !ram_req;
+	assign read_req = grant[1] || grant[0]；
+	assign read_disable = (araddr == last_write_address)?writing:1'b0;
+	
+	assign ram_addr_ok  = grant[2] && waddr_ok || grant[1] && raddr_ok;
+	assign rom_addr_ok  = grant[0] && raddr_ok;
+	
+	
+	assign wen    = ram_req && ram_we;
+	assign wmask  = ram_wmask;
+	assign awsize = 3'b010;
+	assign awaddr = ram_address;
+	assign wdata  = ram_wdata;
+	
+	assign ren = (!read_disable) && read_req;
+	assign arid = (grant[0])?0:1;
+	assign arsize = 3'b010;
+	assign araddr = (grant[1])?ram_address:rom_address;
+	
+	
+		    /********* SRAM *********/
+	//数据输入
+    input [`BUS_WIDTH - 1:0] rom_address,
+
+    input rom_req,
+    
+    input [`BUS_WIDTH - 1:0]ram_address,
+    input [`DATA_WIDTH - 1: 0]ram_wdata,
+    input [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
+
+	
+	
+	
+	wire read_back2ram;
+	wire read_back2rom;
+	assign read_back2ram = (rid == 1)?1'b1:1'b0;
+	assign read_back2rom = (rid == 0)?1'b1:1'b0;
+	assign ram_data_ok  = wdata_ok || ( read_back2ram && rdata_ok);
+	assign rom_data_ok  = (read_back2rom && rdata_ok);
+	assign ram_rdata    = (read_back2ram)?sram_rdata:`DATA_WIDTH'd0;
+	assign rom_rdata    = (read_back2rom)?sram_rdata:`INST_NOP;
+	
+	
+endmodule

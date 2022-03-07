@@ -43,8 +43,6 @@ def get_reference_file(bin_file):
         print('no valid isa !')
         return None
         
-
-    print(files)
     # 根据bin文件前缀找到对应的reference_output文件
     for file in files:
         if (file.find(prefix) != -1):

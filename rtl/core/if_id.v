@@ -25,7 +25,7 @@
 module if_id(
     input clk,
     input rst_n,
-    input cancel_id,
+    input cancel,
     input hold,
     input [`BUS_WIDTH - 1:0]pc_if,
     output [`BUS_WIDTH - 1:0]pc_id,
@@ -49,7 +49,7 @@ module if_id(
     wire pipe_valid;
 //    wire hold_pipe;
 //    assign hold_pipe = ~allow_in_ex ;
-    assign pipe_valid = valid_if & ready_go_if && (!cancel_id);
+    assign pipe_valid = valid_if & ready_go_if && (!cancel);
     assign pc_id = pc;
     assign valid_id = valid;    // decide pc pipe
     assign instruction_id = instruction;
@@ -65,8 +65,8 @@ module if_id(
         begin;
             valid <= 1'b0;
         end
-        else if(cancel_id)begin
-            valid <= 0;
+        else if(cancel)begin
+            valid <= 1'b0;
         end
         else if(allow_in_id)begin
             valid <= pipe_valid;

@@ -26,6 +26,7 @@ module riscv_core(
     input [7:0]external_int_flag,
     output [`BUS_WIDTH - 1:0] rom_address,
     output rom_req,
+    output jump_req,
     input rom_addr_ok,
     output rom_data_resp,
     input rom_data_ok,
@@ -37,9 +38,9 @@ module riscv_core(
     output ram_req,
     output ram_re,
     output ram_we,
-    output reg [`DATA_WIDTH - 1: 0]ram_wdata,
-    input [`DATA_WIDTH - 1: 0]ram_rdata,
-    output reg [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
+    output [`DATA_WIDTH - 1: 0]ram_wdata,
+    input  [`DATA_WIDTH - 1: 0]ram_rdata,
+    output [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
     input wire [`RD_WIDTH - 1:0]  jtag_reg_addr_i,   // jtag模块读�?�写寄存器的地址
     input wire [`DATA_WIDTH - 1: 0] jtag_reg_data_i,       // jtag模块写寄存器数据
     input wire jtag_reg_we_i,                  // jtag模块写寄存器标志
@@ -55,7 +56,6 @@ module riscv_core(
     wire [`BUS_WIDTH - 1:0]next_pc;
 //    wire [`BUS_WIDTH - 1:0]pc_if_id;
 //    wire [`DATA_WIDTH - 1:0]instruction_if;
-    wire pc_jump;
     wire [`BUS_WIDTH - 1:0]jump_addr;
     wire [`DATA_WIDTH - 1:0] instruction_if; 
     wire allow_in_if;
@@ -182,7 +182,6 @@ module riscv_core(
     //write back signals
     wire [`RD_WIDTH - 1:0]rd_wb;
     wire [`DATA_WIDTH - 1:0]wb_data_wb;
-    wire fence_type_wb;
     wire allow_in_wb;
         
     wire write_reg_wb;
@@ -194,17 +193,24 @@ module riscv_core(
 //    wire flush_mem;
     wire flush_wb;
     wire forwording_invalid;
-    wire wb2reg_valid;
     
     wire fence_flush;
-    assign fence_flush = fence_type_ex;
+    wire fence_jump;
+//    wire jump_fail;
+    
+    assign fence_jump = fence_type_ex && allow_in_wb;
+    assign fence_flush = fence_type_ex && !allow_in_wb;
     wire hold_if;
     wire hold_id;
     wire hold_ex;
     wire hold_wb;
     wire cancel_if;
     wire cancel_id;
-    assign  pc_jump = jal_ex || jalr_ex || branch_res || clint_int_assert || fence_type_wb;
+    wire pc_jump;
+//    wire jump_fail;
+    assign jump_req = 1'b0;
+    assign  pc_jump = jal_ex || jalr_ex || branch_res || clint_int_assert || fence_jump;
+
     assign  jump_addr = (clint_int_assert)?clint_int_pc:pc_branch_addr_ex;
 
     assign  cancel_if = pc_jump;
@@ -213,26 +219,15 @@ module riscv_core(
     //if jump fail ,it wait in ex.
     // flush generate a nop input, but it would not be received unless the stage allow in
     assign  flush_ex = pc_jump;
-    assign  hold_if = jtag_halt_flag_i || clint_hold_flag || stall_pipe || fence_flush;
-    assign  hold_id = jtag_halt_flag_i || clint_hold_flag || stall_pipe || fence_flush;
-    assign  hold_ex = jtag_halt_flag_i;    
+    assign  hold_if = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
+    assign  hold_id = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
+    assign  hold_ex = 1'b0;    
+//    assign  hold_ex = jtag_halt_flag_i || jump_fail;    
      assign hold_wb = 1'b0;
     
      assign flush_wb = 1'b0;
     
-
-    // if wb is waiting for data ok , it becomes full
-    // if wb is full, ram req will not gen
-//    assign ram_req_not_hit = ram_req  &&  !(ram_addr_ok);
-    // when not hit, jumo adder will not change
-    // if wb is waiting for data ok , it becomes full
-    // if wb is full, ram req will not gen
-//    assign jump_req_not_hit = pc_jump  &&  !(rom_addr_ok);
-    
-
-
-    // regs 
-    pc_gen #(.PC_WIDTH(`MEMORY_DEPTH)) pc_gen_inst(
+    pc_gen pc_gen_inst(
         .clk(clk),
         .rst_n(rst_n),
         .jump_addr(jump_addr),
@@ -248,6 +243,8 @@ module riscv_core(
         .ready_go_pre(ready_go_pre),
         .valid_pre(valid_pre)
     );
+
+    
     
     assign rom_address = next_pc;
     
@@ -274,7 +271,7 @@ module riscv_core(
     if_id if_id_inst(
         .clk(clk),
         .rst_n(rst_n),
-        .cancel_id(cancel_id),
+        .cancel(cancel_id),
         .hold(hold_id),
         .pc_if(pc_if),
         .pc_id(pc_id),
@@ -383,6 +380,7 @@ module riscv_core(
     wire inst_ecall_type_ex;
     wire inst_ebreak_type_ex;
     wire inst_mret_type_ex;
+    wire memory_access_missalign;
     wire inst_wfi_id;
     assign csr_addr_id = instruction_id[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
     wire [3:0] int_ins_type_id;
@@ -411,6 +409,7 @@ module riscv_core(
         .inst_ecall_i(inst_ecall_type_ex),
         .inst_ebreak_i(inst_ebreak_type_ex),
         .inst_mret_i(inst_mret_type_ex),
+        .memory_access_missalign(1'b0),
         .inst_addr_i(pc_ex),   
           
         .csr_mtvec(clint_csr_mtvec), 
@@ -521,98 +520,24 @@ module riscv_core(
         .clint_csr_mepc(clint_csr_mepc),    // mepc
         .clint_csr_mstatus(clint_csr_mstatus) // mstatus
     );
-   
-
-    wire [1:0]mem_waddr_index;
-    wire [7:0] ram_wdata_byte;
+    
+     wire [1:0]mem_waddr_index;
+    assign mem_waddr_index = {ram_address_ex[1],  ram_address_ex[0]};
     assign ram_wdata_ex = rs2_data_ex;
     assign ram_we = write_mem_ex;
     assign ram_re = read_mem_ex;
-    assign ram_wdata_byte = ram_wdata_ex[7:0];
-    wire [15:0]ram_wdata_half_word;
-    assign ram_wdata_half_word = ram_wdata_ex[15:0];
-    wire [31:0]ram_wdata_word;
-    assign ram_wdata_word = ram_wdata_ex[31:0];
-    reg [3:0]ram_wbyte;
-    reg [1:0]ram_whalfword;
-    wire ram_wword;
- 
-    assign ram_wword = (ins_func3_ex ==  3'b010)? ram_we: 1'b0;
-    assign mem_waddr_index = {ram_address_ex[1],  ram_address_ex[0]};
-    always@(*)begin
-        if( (ins_func3_ex ==  3'b000))begin
-            case(mem_waddr_index)
-                2'b00:begin
-                    ram_wbyte = {3'b000,ram_we};
-                end
-                2'b01:begin
-                    ram_wbyte = {2'b00,ram_we, 1'b0};
-                end
-                2'b10:begin
-                    ram_wbyte =  {1'b0,ram_we, 2'b00};
-                end
-                2'b11:begin
-                    ram_wbyte = {ram_we, 3'b000};
-                end
-                default:begin
-                    ram_wbyte = 4'b0000;
-                end
-            endcase
-        end
-        else begin
-            ram_wbyte = 4'b0000;
-        end
-    end
-    
-    always@(*)begin
-        if((ins_func3_ex ==  3'b001))begin
-            case(mem_waddr_index)
-                2'b00:begin
-                    ram_whalfword =  {1'b0,ram_we};
-                end
-                2'b10:begin
-                    ram_whalfword =  {ram_we, 1'b0};
-                end
-                default:begin
-                    ram_whalfword = 2'b00;
-                end
-            endcase
-        end
-        else begin
-            ram_whalfword = 2'b00;
-        end
-    end
-                                
-    always@(*)begin
-            case(ins_func3_ex)
-            //SB
-             3'b000:begin
-                    ram_wmask <= ram_wbyte;
-                    ram_wdata[31:24] = (ram_wbyte[3])?ram_wdata_byte:8'd0;
-                    ram_wdata[23:16] = (ram_wbyte[2])?ram_wdata_byte:8'd0;
-                    ram_wdata[15:8] = (ram_wbyte[1])?ram_wdata_byte:8'd0;
-                    ram_wdata[7:0] = (ram_wbyte[0])?ram_wdata_byte:8'd0;
-             end
-            //SH
-             3'b001:begin
-                    ram_wmask <= {{2{ram_whalfword[1]}},{2{ram_whalfword[0]}}};
-                    ram_wdata[31:16] = (ram_whalfword[1])?ram_wdata_half_word:16'd0;
-                    ram_wdata[15:0] = (ram_whalfword[0])?ram_wdata_half_word:16'd0;
-             end
-             3'b010:begin
-                    ram_wmask <= {4{ram_wword}};
-                    ram_wdata <= ram_wdata_word;
-             end
-             default:begin
-                   ram_wmask <= 4'b0000;
-                   ram_wdata <= 32'd0;
-             end
-         endcase
-    end
-    
-    
     assign ins_func3_ex = instruction_ex[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH : `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH];
     
+    ram_wdata_mask ram_wdata_mask_inst(
+        .mem_waddr_index(mem_waddr_index),
+        .mem_write_data(rs2_data_ex),
+        .mask_type(ins_func3_ex),
+        .ram_we(ram_we),
+        .memory_access_missalign(memory_access_missalign),
+        .mem_write_data_mask(ram_wdata),
+        .mem_wmask(ram_wmask)
+    );
+
     branch_decision branch_decision_inst(
         .branch_req(branch_ex),
         .ins_fun3(ins_func3_ex),
@@ -710,11 +635,8 @@ module riscv_core(
         .rd_ex(rd_ex),
         .rd_wb(rd_wb),
         .ins_func3_i(ins_func3_ex),
-        .fence_type_ex(fence_type_ex),
-        .fence_type_wb(fence_type_wb),
         .write_reg_wb(write_reg_wb),
         .forwording_invalid(forwording_invalid),
-        .wb2reg_valid(wb2reg_valid),
         .allow_in_wb(allow_in_wb),
         .valid_ex(valid_ex),
         .ready_go_ex(ready_go_ex),

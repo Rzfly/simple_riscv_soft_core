@@ -24,7 +24,7 @@ def main():
 
 
     # 2.编译rtl文件
-    cmd = r'python compile_rtl.py' + tb_file
+    cmd = r'python compile_rtl.py' + r" .." + tb_file
 
     f = os.popen(cmd)
     d = f.read()

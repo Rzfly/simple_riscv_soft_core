@@ -63,8 +63,8 @@ module jtag_top #(
     wire dm_ack_o;
     wire[DM_RESP_BITS-1:0] dm_resp_data_o;
     wire dm_resp_valid_o;
-    wire dm_halt_req_o;
-    wire dm_reset_req_o;
+//    wire dm_halt_req_o;
+//    wire dm_reset_req_o;
 
     jtag_driver #(
         .DMI_ADDR_BITS(DMI_ADDR_BITS),

@@ -59,7 +59,7 @@ def main():
     f = os.popen(cmd)
     f.close()
 
-    tb_file = r' /tb/compliance_test/compliance_test_tb.v'
+    tb_file = r' /tb/compliance_test/axi_compliance_test_tb.v'
     proj = r' C:\Users\\newrz\Desktop\riscv\simple_riscv_soft_core'
     # 2.编译rtl文件
     cmd = r'python ../compile_rtl.py' + proj  + tb_file

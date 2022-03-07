@@ -36,7 +36,7 @@ def main():
     # iverilog程序
     iverilog_cmd = ['iverilog']
     # 顶层模块
-    #iverilog_cmd += ['-s', r'tinyriscv_soc_tb']
+    #iverilog_cmd = ['-s', r'axi_riscv_core_sim.v']
     # 编译生成文件
     iverilog_cmd += ['-o', r'out.vvp']
     # 头文件(defines.v)路径

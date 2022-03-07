@@ -15,6 +15,7 @@ module clint(
     input wire inst_ecall_i,                    // ecall指令
     input wire inst_ebreak_i,                   // ebreak指令
     input wire inst_mret_i,                     // mret指令
+    input wire memory_access_missalign,
     input wire [`BUS_WIDTH - 1:0] inst_addr_i,     // 指令地址
 //    input wire jump_flag_i,
     
@@ -69,7 +70,7 @@ module clint(
                 int_state <= S_INT_ASYNC_ASSERT;
         end
         else begin
-            if (inst_ecall_i || inst_ebreak_i) begin
+            if (inst_ecall_i || inst_ebreak_i || memory_access_missalign) begin
                 // 如果执行阶段的指令为除法指令，则先不处理同步中断，等除法指令执行完再处理
                 int_state <= S_INT_SYNC_ASSERT;
             end else if (inst_mret_i) begin
@@ -97,6 +98,7 @@ module clint(
                         inst_addr <= inst_addr_i;
                          cause <= inst_ebreak_i? 32'd3:
                                      inst_ecall_i? 32'd11:
+                                     memory_access_missalign?32'd4:
                                      32'd10;
                      //异步中断，没有考虑异常
                      //当前id阶段的指令即ex阶段的指令加4

@@ -140,7 +140,7 @@ module csr_reg(
     // exÄ£¿é¶ÁCSR¼Ä´æÆ÷
     always @ (*) begin
         if ((waddr_i[`CsrMemAddrWIDTH - 1:0] == raddr_i[`CsrMemAddrWIDTH - 1:0]) && (we_i == 1'b1)) begin
-            data_o = data_i;
+            data_o <= data_i;
         end else begin
             case (raddr_i[`CsrMemAddrWIDTH - 1:0])
                 `CSR_CYCLE: begin

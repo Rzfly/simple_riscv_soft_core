@@ -21,7 +21,7 @@
 
 `include "include.v"
 //`define PLL
-//`define JTAG
+`define JTAG
 
 module soc_top(
     input wire sys_clk,

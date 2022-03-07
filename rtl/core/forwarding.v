@@ -49,7 +49,16 @@ module forwarding_id(
 	
 	always@(*)begin
 	   case(rs1_forward_mux_ex)
-	       3'b0xx:begin
+	       3'b000:begin
+	           rs1_data_forward_id = rs1_data_id;
+	       end
+	       3'b001:begin
+	           rs1_data_forward_id = rs1_data_id;
+	       end
+	       3'b010:begin
+	           rs1_data_forward_id = rs1_data_id;
+	       end
+	       3'b011:begin
 	           rs1_data_forward_id = rs1_data_id;
 	       end
 	       //alu write
@@ -72,7 +81,16 @@ module forwarding_id(
 	
 	always@(*)begin
 	   case(rs2_forward_mux_ex)
-	       3'b0xx:begin
+	       3'b000:begin
+	           rs2_data_forward_id = rs2_data_id;
+	       end
+	       3'b001:begin
+	           rs2_data_forward_id = rs2_data_id;
+	       end
+	       3'b011:begin
+	           rs2_data_forward_id = rs2_data_id;
+	       end
+	       3'b010:begin
 	           rs2_data_forward_id = rs2_data_id;
 	       end
 	       //alu write

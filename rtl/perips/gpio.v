@@ -44,7 +44,7 @@ module gpio(
     localparam GPIO_DATA = 4'h4;
     reg read_data_ok;
     reg write_data_ok;
-    assign addr_ok = rst_n;
+    assign addr_ok = req_i;
     assign data_ok = read_data_ok | write_data_ok;
     // �?2位控�?1个IO的模式，�?多支�?16个IO
     // 0: 高阻�?1：输出，2：输�?

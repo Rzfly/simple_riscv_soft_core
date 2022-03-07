@@ -50,7 +50,7 @@ module pc_gen #(
     wire [`BUS_WIDTH - 1:0] pc_add;
     reg [`BUS_WIDTH - 1:0] jump_addr_temp;
     wire cancel_pc;
-    assign cancel_pc = fence_flush || jtag_halt_flag_i || clint_hold_flag || !allow_in_if;
+    assign cancel_pc = fence_flush || jtag_halt_flag_i || clint_hold_flag || !allow_in_if ;
     wire [2:0]pc_control;
     reg save_jump;
     reg save_jump_valid;
@@ -79,7 +79,7 @@ module pc_gen #(
             end
             //save
             3'b110:begin
-                next_pc <= jump_addr_temp;
+                next_pc <= jump_addr;
                 rom_req <= 1'b0;
                 save_jump <= 1'b1;
             end

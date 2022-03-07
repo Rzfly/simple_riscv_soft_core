@@ -47,7 +47,6 @@ module pre_if(
     
     parameter state_leap  = 3'b001;
     parameter state_empty = 3'b010;
-//    parameter state_pipe  = 4'b0100;
     parameter state_full  = 3'b100;
     reg [`BUS_WIDTH - 1:0]pc;
     reg instruction_valid;
@@ -63,13 +62,13 @@ module pre_if(
     assign data_ok_resp = 1'b1;
 //    wire hold_pipe;
 //    assign hold_pipe = !allow_in_id | hold;
-    assign pipe_valid = valid_pre && ready_go_pre ;
+    assign pipe_valid = valid_pre && ready_go_pre;
     assign pc_if = pc;
     assign instruction_if = (instruction_valid)?instruction:rom_rdata;
     // not related with flush
     assign ready_go_if = (mem_data_ok || instruction_valid) && (!hold) && state[2];
     assign valid_if = state[2];
-    assign allow_in_if = ( state[1] ) || commit_ok && !cancel;
+    assign allow_in_if = ( state[1] ) || commit_ok;
 
 //    flush  allow hold hold pipe
 //      1      0    0       1

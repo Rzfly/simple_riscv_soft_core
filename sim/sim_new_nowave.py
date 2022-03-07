@@ -20,7 +20,7 @@ def main():
     rtl_path = root_path + '\\rtl'
     tb_path = root_path + '\\tb'
 
-    tb_file = r' /tb/riscv_core_sim.v'
+    tb_file = r' /tb/axi_riscv_core_sim.v'
 
 
     # 2.编译rtl文件

@@ -717,8 +717,8 @@ module axi_jtag_tb;
 
     // generate wave file, used by gtkwave
     initial begin
-        $dumpfile("jtag_tb.vcd");
-        $dumpvars(0, jtag_tb);
+        $dumpfile("axi_jtag_tb.vcd");
+        $dumpvars(0, axi_jtag_tb);
     end
 
     
@@ -746,7 +746,7 @@ module axi_jtag_tb;
     wire spi_clk;
     assign spi_miso = 1'b0;
     assign uart_rx_pin = 1'b1;
-    axi_soc_top soc_top_inst(
+    axi_soc_top axi_soc_top_inst(
         .sys_clk(clk),
         .rst_ext_i(rst_n),
         .uart_debug_pin(1'b0),
@@ -770,7 +770,7 @@ module axi_jtag_tb;
     // read mem data
     initial begin
         #20
-        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_duelport_ram_inst.mem_r);
+        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data",  axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\tinyriscv\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.sirv_duelport_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);

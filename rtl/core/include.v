@@ -26,8 +26,8 @@
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define RAM_MASK_WIDTH 4
-`define MEMORY_DEPTH 4096
-`define MEMORY_WIDTH 11
+`define MEMORY_DEPTH 32768
+`define MEMORY_WIDTH 15
 `define JTAG_RESET_FF_LEVELS 5
 //p58 R-type
 `define FUNC7_WIDTH 7

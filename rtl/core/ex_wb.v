@@ -9,7 +9,6 @@ module ex_wb(
     input hold,
 //    input fence_type_ex,
     input mem_data_ok,
-    input mem_addr_ok,
     output data_ok_resp,
     //as address
     input [`DATA_WIDTH - 1:0]mem_address_i,
@@ -18,15 +17,10 @@ module ex_wb(
     output reg [`DATA_WIDTH - 1:0]  wb_data_wb,
     output write_reg_wb,
     input [3:0]control_flow_ex,
-    output mem_write,
-    output mem_read,
     output mem2reg_wb,
-    output wb2reg_valid,
     output forwording_invalid,
     input [`RD_WIDTH - 1:0]rd_ex,
     output [`RD_WIDTH - 1:0]rd_wb,
-    input fence_type_ex,
-    output  fence_type_wb,
     input [2: 0]ins_func3_i,
     //to next pipe
     input allow_in_regfile,
@@ -39,7 +33,7 @@ module ex_wb(
     input valid_ex,
     input ready_go_ex
     );
-    
+
 //    parameter state_leap  = 4'b0001;
 //    parameter state_empty = 4'b0010;
 //    parameter state_pipe  = 4'b0100;
@@ -64,14 +58,12 @@ module ex_wb(
     wire [1:0]wb_source;
     reg [3:0]control_flow;
     reg [`RD_WIDTH - 1:0]rd;
-    reg fence_type;
     wire pipe_valid;
 
     wire req_ok;
     wire commit_ok;
-    assign req_ok    = pipe_valid && allow_in_wb;
+    assign req_ok    = pipe_valid && allow_in_wb && !cancel ;
     assign commit_ok = ready_go_wb && allow_in_regfile;
-    assign wb2reg_valid = ready_go_wb && valid_wb;
     assign forwording_invalid = !ready_go_wb && write_reg_wb;
     
     assign data_ok_resp = 1'b1;
@@ -79,12 +71,11 @@ module ex_wb(
     // not related with flush
     assign ready_go_wb = ((mem_data_ok || ram_data_valid) && control_flow[1]) && (!hold) && state[2] || (!control_flow[1]) && (!hold) && state[2]; 
     assign valid_wb = state[2];
-    assign allow_in_wb = ( state[1] ) || commit_ok && !cancel;
+    assign allow_in_wb = ( state[1] ) || commit_ok;
     
     assign  rd_wb  = rd;
     assign  mem2reg_wb = control_flow[1]  && valid_wb;
     assign  write_reg_wb = control_flow[0]  && valid_wb;
-    assign  fence_type_wb = fence_type & valid_wb;
 
     //mem2reg
     assign wb_source = {control_flow[1],ram_data_valid};
@@ -180,14 +171,12 @@ module ex_wb(
             control_flow <= 0;
             rd <= 0;
             ins_func3 <= 0;
-            fence_type <= 0;
         end
         else if ( req_ok )begin
             mem_address_testtest <= mem_address_i;
             control_flow <= control_flow_ex;
             rd <= rd_ex;
             ins_func3 <= ins_func3_i;
-            fence_type <= fence_type_ex;
         end
     end
     
