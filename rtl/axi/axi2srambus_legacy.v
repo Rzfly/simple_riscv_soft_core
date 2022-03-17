@@ -22,7 +22,7 @@
 `include "include.v"
 
 //duel port
-module axi2srambus #(
+module axi2srambus_legacy #(
   parameter   DATA_WIDTH  = 32,               //数据位宽
   parameter   ADDR_WIDTH  = 32,               //地址位宽              
   parameter   ID_WIDTH    = 4,                //ID位宽

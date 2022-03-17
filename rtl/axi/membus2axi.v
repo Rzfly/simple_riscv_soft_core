@@ -22,9 +22,9 @@
 `include "include.v"
 
 module membus2axi #(
-  parameter   DATA_WIDTH  = 32,             //数据位宽
-  parameter   ADDR_WIDTH  = 32,               //地址位宽              
-  parameter   ID_WIDTH    = 6,               //ID位宽
+  parameter   DATA_WIDTH  = `AXI_DATA_WIDTH,               //数据位宽
+  parameter   ADDR_WIDTH  = `AXI_ADDR_WIDTH,               //地址位宽              
+  parameter   ID_WIDTH    = `AXI_ID_WIDTH,                //ID位宽
   parameter   STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
 )(
     /********* clock & reset *********/
@@ -107,7 +107,7 @@ module membus2axi #(
     wire [`BUS_WIDTH - 1:0]mem_last_write_address;
     
     //=========================================================
-	  //写鿚道例�?
+	//ram access
     srambus2axi#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
@@ -170,15 +170,15 @@ module membus2axi #(
 	);
 		
 		
-    wire [5:0]mem_rid;
+    wire [ID_WIDTH - 1:0]mem_rid;
+    wire [3:0]rom_rdata_ptr;
 	//=========================================================
-	//读鿚道例�?
-	axi_r_channel_master_immd#(
+	axi_r_channel_master_burster#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
 		.ID_WIDTH(ID_WIDTH),
 		.STRB_WIDTH(DATA_WIDTH/8)
-	)axi_r_channel_master_immd_inst(
+	)axi_r_channel_master_burster_inst(
 		.ACLK(ACLK),
 		.ARESETn(ARESETn),
 		
@@ -203,15 +203,14 @@ module membus2axi #(
         .rid(mem_rid),
 		.sram_rdata(rom_rdata),
 		.ren(rom_req),
-		.arid(6'b001001),
+		.arid(7'b0010001),
 		.arsize(3'b010),
+		.arlen(4'd0),
 		.araddr(rom_address),
 		.raddr_ok(rom_addr_ok),
         .data_resp(rom_data_resp),    
-		.rdata_ok(rom_data_ok)
-	);
-	
-	
-	
+		.rdata_ok(rom_data_ok),
+		.rdata_ptr(rom_rdata_ptr)		
+	);	
 
 endmodule

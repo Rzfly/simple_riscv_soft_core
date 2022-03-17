@@ -41,10 +41,10 @@ module riscv_core(
     output [`DATA_WIDTH - 1: 0]ram_wdata,
     input  [`DATA_WIDTH - 1: 0]ram_rdata,
     output [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
-    input wire [`RD_WIDTH - 1:0]  jtag_reg_addr_i,   // jtag模块读�?�写寄存器的地址
+    input wire [`RD_WIDTH - 1:0]  jtag_reg_addr_i,   // jtag模块读�?�写寄存器的地址
     input wire [`DATA_WIDTH - 1: 0] jtag_reg_data_i,       // jtag模块写寄存器数据
     input wire jtag_reg_we_i,                  // jtag模块写寄存器标志
-    output wire [`DATA_WIDTH - 1: 0]  jtag_reg_data_o,      // jtag模块读取到的寄存器数�?
+    output wire [`DATA_WIDTH - 1: 0]  jtag_reg_data_o,      // jtag模块读取到的寄存器数�?
     input wire jtag_halt_flag_i               // jtag暂停标志
     );
     
@@ -92,6 +92,23 @@ module riscv_core(
     wire [11:0]control_flow_id;
     assign control_flow_id = {lui_type_id, csr_we_id, jal_id,fence_type_id,jalr_id,auipc_id,branch_id,ALU_src_id,read_mem_id,write_mem_id,mem2reg_id,write_reg_id};
     
+    wire signed_div_id;	
+	wire signed_mult_num_1_id;
+	wire signed_mult_num_2_id;
+	wire div_res_req_id;
+	wire div_rem_req_id;
+	wire mull_req_id;
+	wire mulh_req_id;
+	wire [6:0]multdiv_control_id;
+    assign multdiv_control_id = 
+    {signed_div_id, 
+    signed_mult_num_1_id,
+    signed_mult_num_2_id,
+    div_res_req_id,
+    div_rem_req_id,
+    mull_req_id,
+    mulh_req_id};    
+	
     wire [`RS2_WIDTH - 1:0] rs2_id;
     wire [`RS1_WIDTH - 1:0] rs1_id;
     wire [`DATA_WIDTH - 1:0] rs2_data_forward_id;
@@ -104,6 +121,7 @@ module riscv_core(
     wire [`DATA_WIDTH - 1:0] imm_shifted_id;
 //    wire [`DATA_WIDTH - 1:0] imm_for_pc_addition;
     wire [`DATA_WIDTH - 1:0] imm_id;
+    wire r_type_ins_id;
     
     wire [`OP_WIDTH - 1:0]ins_opcode_id;
     wire [`FUNC7_WIDTH - 1 : 0]ins_func7_id;
@@ -146,10 +164,30 @@ module riscv_core(
     wire [`DATA_WIDTH - 1:0] instruction_ex;
     wire [`DATA_WIDTH - 1:0] ram_wdata_ex;
     wire [`DATA_WIDTH - 1 :0]ram_address_ex;
-    wire [`DATA_WIDTH - 1 :0]mem_address_ex;
+    
+    wire signed_div_ex;
+    wire req_div_valid;
+    wire req_div_ready;
+    wire rsp_div_valid;
+    wire rsp_div_ready;
+    wire [`DATA_WIDTH - 1:0]signed_div_res;
+    wire [`DATA_WIDTH - 1:0]unsigned_div_res;
+    wire [`DATA_WIDTH - 1:0]signed_rem_res;
+    wire [`DATA_WIDTH - 1:0]unsigned_rem_res;
+    
+    wire signed_mult_ex;
+    wire req_mult_valid;
+    wire req_mult_ready;
+    wire rsp_mult_valid;
+    wire rsp_mult_ready;
+    wire [`DATA_WIDTH - 1:0]signed_mult_resh;
+    wire [`DATA_WIDTH - 1:0]unsigned_mult_resh;
+    wire [`DATA_WIDTH - 1:0]signed_mult_resl;
+    wire [`DATA_WIDTH - 1:0]unsigned_mult_resl;
     
     wire [`ALU_OP_WIDTH - 1: 0]alu_control_ex;
     wire [`DATA_WIDTH - 1:0] alu_output_ex;
+    wire [6:0]multdiv_control_ex;
     wire alu_no_zero;
     wire stall_pipe;
     wire branch_res;
@@ -163,7 +201,12 @@ module riscv_core(
     assign write_reg_ex = control_flow_ex[0];
     wire valid_ex;
     wire ready_go_ex;
-    
+    assign signed_div_ex  = multdiv_control_ex[6];
+    assign signed_mult_num_1_ex = multdiv_control_ex[5];
+    assign signed_mult_num_2_ex = multdiv_control_ex[4];
+    assign signed_mult_ex = signed_mult_num_1_ex | signed_mult_num_2_ex;
+    assign req_div_valid  = multdiv_control_ex[3] | multdiv_control_ex[2];
+    assign req_mult_valid = multdiv_control_ex[1] | multdiv_control_ex[0];
     
     wire [`DATA_WIDTH - 1:0] clint_csr_mtvec;   // mtvec
     wire [`DATA_WIDTH - 1:0] clint_csr_mepc;    // mepc
@@ -174,7 +217,7 @@ module riscv_core(
     wire [`DATA_WIDTH - 1 : 0] clint2csr_wdata;
     wire [`BUS_WIDTH - 1:0] clint_int_pc;
     wire clint_int_assert;
-    
+    wire [`DATA_WIDTH - 1 : 0]ex2wb_wdata;
     
     //memory access signals
 
@@ -190,13 +233,13 @@ module riscv_core(
     //processing
     wire valid_wb;
     wire ready_go_wb;
-//    wire flush_mem;
+//  wire flush_mem;
     wire flush_wb;
     wire forwording_invalid;
     
     wire fence_flush;
     wire fence_jump;
-//    wire jump_fail;
+//  wire jump_fail;
     
     assign fence_jump = fence_type_ex && allow_in_wb;
     assign fence_flush = fence_type_ex && !allow_in_wb;
@@ -206,9 +249,10 @@ module riscv_core(
     wire hold_wb;
     wire cancel_if;
     wire cancel_id;
+    wire cancel_ex;
     wire pc_jump;
 //    wire jump_fail;
-    assign jump_req = 1'b0;
+    assign jump_req = pc_jump;
     assign  pc_jump = jal_ex || jalr_ex || branch_res || clint_int_assert || fence_jump;
 
     assign  jump_addr = (clint_int_assert)?clint_int_pc:pc_branch_addr_ex;
@@ -219,6 +263,8 @@ module riscv_core(
     //if jump fail ,it wait in ex.
     // flush generate a nop input, but it would not be received unless the stage allow in
     assign  flush_ex = pc_jump;
+    //cancel mult & div
+    assign  cancel_ex = clint_hold_flag;
     assign  hold_if = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
     assign  hold_id = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
     assign  hold_ex = 1'b0;    
@@ -244,8 +290,6 @@ module riscv_core(
         .valid_pre(valid_pre)
     );
 
-    
-    
     assign rom_address = next_pc;
     
     pre_if pre_if_inst(
@@ -304,6 +348,7 @@ module riscv_core(
         .csr_type(csr_type_id),
         .lui_type(lui_type_id),
         .fence_type(fence_type_id),
+        .r_type_ins(r_type_ins_id),
         .ins_opcode(ins_opcode_id),
         .ins_func7(ins_func7_id),
         // ins_func6 unused, to be used in the future
@@ -314,6 +359,19 @@ module riscv_core(
         .rd(rd_id),
         .imm_short(imm_short),
 	    .imm_long(imm_long)
+    );
+
+    multdiv_control multdiv_control_inst(
+        .r_type(r_type_ins_id),
+        .func7(ins_func7_id),
+        .func3(ins_func3_id),
+        .signed_div(signed_div_id),
+        .signed_mult_num_1(signed_mult_num_1_id),
+        .signed_mult_num_2(signed_mult_num_2_id),
+        .div_res_req(div_res_req_id),
+        .div_rem_req(div_rem_req_id),
+        .mull_req(mull_req_id),
+        .mulh_req(mulh_req_id)
     );
 
 //    wire [`DATA_WIDTH - 1:0] rs2_mask;
@@ -346,14 +404,14 @@ module riscv_core(
         .ready_go_wb(ready_go_wb)
     );
     
-    //?��?????? 12 -> 32
+    //?��?????? 12 -> 32
     sign_extend sign_extend_inst(
         .immediate_num(imm_short),
         .num(imm_extend_id)
     );
     
-     //?��??????????????????
-     mux2num imm_switch_for_immtype(
+     //?��??????????????????
+    mux2num imm_switch_for_immtype(
      .num0(imm_extend_id),
      .num1(imm_long),
      .switch(imm_src_id),
@@ -425,16 +483,12 @@ module riscv_core(
         .int_assert_o(clint_int_assert) 
     );
    
-    forwarding_id forwarding_id_unit(
+    forwarding_id_simple forwarding_id_simple_unit(
         .rs1_data_id(rs1_data_reg),
         .rs2_data_id(rs2_data_reg),
-        .alu_output_ex(alu_output_ex),
-        //desting reg is rd
-        .csr_read_data_ex(csr_read_data_ex),
-        .imm_ex(imm_ex),
-        .csr_we_ex(csr_we_ex),
-        .lui_type_ex(lui_type_ex),
-        .write_reg_ex(write_reg_ex),
+        .ex2wb_wdata(ex2wb_wdata),
+        .to_wb_valid(to_wb_valid),
+	    .write_reg_ex(write_reg_ex),
         .rs1_id(rs1_id),
         .rs2_id(rs2_id),
         .rd_ex(rd_ex),
@@ -468,6 +522,8 @@ module riscv_core(
         .rd_id(rd_id),
         .alu_control_id(alu_control_id),
         .alu_control_ex(alu_control_ex),
+        .multdiv_control_id(multdiv_control_id),
+        .multdiv_control_ex(multdiv_control_ex),
         .ALU_src_ex(ALU_src_ex),
         .branch_ex(branch_ex),
         .auipc_ex(auipc_ex),
@@ -486,12 +542,13 @@ module riscv_core(
         .rd_ex(rd_ex),
         .rs2_ex(rs2_ex),
         .rs1_ex(rs1_ex),
-        .allow_in_ex(allow_in_ex),
+        .allow_in_ex_commit(allow_in_ex),
+//        .allow_in_ex(allow_in_ex),
         .valid_id(valid_id),
         .ready_go_id(ready_go_id),
         .allow_in_wb(allow_in_wb),
-        .valid_ex(valid_ex),
-        .ready_go_ex(ready_go_ex)
+        .valid_ex(valid_ex)
+//        .ready_go_ex(ready_go_ex)
     );
         
     assign csr_addr_ex = instruction_ex[`DATA_WIDTH - 1:`DATA_WIDTH - `IMM_WIDTH];
@@ -605,21 +662,97 @@ module riscv_core(
         .alu_output(alu_output_ex),
         .alu_no_zero(alu_no_zero)
     );
-
+    
+    diver diver_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .cancel(cancel_ex),
+        .req_valid(req_div_valid),
+        .req_ready(req_div_ready),
+        .rsp_valid(rsp_div_valid),
+        .rsp_ready(rsp_div_ready),
+        .signed_div(signed_div_ex),
+        .num_1(alu_input_num1),
+        .num_2(alu_input_num2),
+        .signed_div_res(signed_div_res),
+        .unsigned_div_res(unsigned_div_res),
+        .signed_rem_res(signed_rem_res),
+        .unsigned_rem_res(unsigned_rem_res)
+    );
+        
+ 
+    multer_top multer_top_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .cancel(cancel_ex),
+        .rs1_ex(rs1_ex),
+        .rs2_ex(rs2_ex),
+        .rd_ex(rd_ex),
+        .req_valid(req_mult_valid),
+        .req_ready(req_mult_ready),
+        .rsp_valid(rsp_mult_valid),
+        .rsp_ready(rsp_mult_ready),
+        .signed_mult_num_1(signed_mult_num_1_ex),
+        .signed_mult_num_2(signed_mult_num_2_ex),
+        .num_1(alu_input_num1),
+        .num_2(alu_input_num2),
+        .signed_mult_resh_d(signed_mult_resh),
+        .unsigned_mult_resh_d(unsigned_mult_resh),
+        .signed_mult_resl_d(signed_mult_resl),
+        .unsigned_mult_resl_d(unsigned_mult_resl)
+    );
+    
+    ex_commit ex_commit_inst(
+    .clk(clk),
+    .rst_n(rst_n),
+    //NORMAL
+    .csr_we_ex(csr_we_ex),
+    .lui_type_ex(lui_type_ex),
+    .alu_res(alu_output_ex),
+    .imm_res(imm_ex),
+    .csr_res(csr_read_data_ex),
+    //MUL
+    .mult_type_ok(rsp_mult_valid),
+//    .func3(ins_func3_ex),
+    .mult_control({signed_mult_ex,multdiv_control_ex[1:0]}),
+    .signed_mult_resh(signed_mult_resh),
+    .signed_mult_resl(signed_mult_resl),
+    .unsigned_mult_resh(unsigned_mult_resh),
+    .unsigned_mult_resl(unsigned_mult_resl),
+    .mult_rsp_ready(rsp_mult_ready),
+    //MEM    
+    .mem_addr_ok(ram_addr_ok),
+    .ram_req(ram_req),
+    //DIV
+    .div_type_ok(rsp_div_valid),
+    .div_control({signed_div_ex,multdiv_control_ex[3:2]}),
+    .signed_div_res(signed_div_res),
+    .unsigned_div_res(unsigned_div_res),
+    .signed_rem_res(signed_rem_res),
+    .unsigned_rem_res(unsigned_rem_res),
+    .div_rsp_ready(rsp_div_ready),
+    //
+    .ex2wb_wdata(ex2wb_wdata),
+    .valid_ex(valid_ex),
+    .allow_in_wb(allow_in_wb),
+    .to_wb_valid(to_wb_valid),
+    .ready_go_ex(ready_go_ex),
+    .allow_in_ex(allow_in_ex)
+ );
     assign ram_address_ex = alu_output_ex;
     assign ram_address    = ram_address_ex;
 
-    wire [1:0]mem_address_mux_ex;
-    assign mem_address_mux_ex={ csr_we_ex, lui_type_ex};
-    mux3_switch2 #(.WIDTH(`DATA_WIDTH))
-    mem_address_mux(
-        .num0(alu_output_ex),
-        .num1(imm_ex),
-        //mem2reg
-        .num2(csr_read_data_ex),
-        .switch(mem_address_mux_ex),
-        .muxout(mem_address_ex)
-    );
+//    wire [1:0]mem_address_mux_ex;
+//    assign mem_address_mux_ex={ csr_we_ex, lui_type_ex};
+//    mux3_switch2 #(.WIDTH(`DATA_WIDTH))
+//    mem_address_mux(
+//        .num0(alu_output_ex),
+//        .num1(imm_ex),
+//        //mem2reg
+//        .num2(csr_read_data_ex),
+//        .switch(mem_address_mux_ex),
+//        .muxout(mem_address_ex)
+//    );
     
     ex_wb ex_wb_inst(
         .clk(clk),
@@ -628,7 +761,7 @@ module riscv_core(
         .hold(hold_wb),
         .mem_data_ok(ram_data_ok),
         .data_ok_resp(ram_data_resp),
-        .mem_address_i(mem_address_ex),
+        .mem_address_i(ex2wb_wdata),
         .mem_read_data_i(ram_rdata),
         .control_flow_ex(control_flow_ex),
         .wb_data_wb(wb_data_wb),    

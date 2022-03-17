@@ -23,12 +23,7 @@ module sirv_duelport_ram
   input  [MW-1:0]   wem_a,
   input  [MW-1:0]   wem_b,
   output [DW-1:0]   dout_a,
-  output [DW-1:0]   dout_b,
-  output mem_addr_ok_a,
-  output mem_data_ok_a,
-  output mem_addr_ok_b,
-  output mem_data_ok_b
-  
+  output [DW-1:0]   dout_b
 );
 
     reg [DW-1:0] mem_r [0:DP-1];
@@ -38,22 +33,11 @@ module sirv_duelport_ram
     wire [MW-1:0] wen_b;
     wire ren_a;
     wire ren_b;
-	wire read_a_disable;
-	assign read_a_disable = (addr_a == addr_b)?we_b:1'b0;
 	
-    reg read_data_ok_a;
-    wire write_data_ok_a;
-    reg read_data_ok_b;
-    reg write_data_ok_b;
-    assign mem_addr_ok_a = (!read_a_disable);
-    assign mem_addr_ok_b = 1'b1 ;
 	
-	assign ren_a = rst_n & req_a & (!read_a_disable);
+	assign ren_a = rst_n & req_a;
 	assign ren_b = 1'b0;
 	
-    assign mem_data_ok_a = write_data_ok_a | read_data_ok_a;
-    assign mem_data_ok_b = write_data_ok_b | read_data_ok_b;
-    
     assign wen_a = 1'b0;
     assign wen_b = ({MW{rst_n & req_b & we_b}} & wem_b);
     
@@ -61,14 +45,12 @@ module sirv_duelport_ram
     begin
         if(!rst_n)begin
             addr_a_r <= 0;   
-            read_data_ok_a <= 1'b0;
         end
         else if (ren_a)begin
             addr_a_r <= addr_a;
-            read_data_ok_a <= 1'b1;
         end
 		else begin
-            read_data_ok_a <= 1'b0;
+            addr_a_r <= addr_a_r;
         end
     end
 	
@@ -76,28 +58,12 @@ module sirv_duelport_ram
     begin
         if(!rst_n)begin
             addr_b_r <= 0;   
-            read_data_ok_b <= 1'b0;
         end
         else if (ren_b)begin
             addr_b_r <= addr_b;
-            read_data_ok_b <= 1'b1;
         end
 		else begin
-            read_data_ok_b <= 1'b0;
-        end
-    end
-    
-	assign write_data_ok_a = 1'b0;
-	always @(posedge clk)
-    begin
-        if(~rst_n)begin
-            write_data_ok_b <= 1'b0;
-        end
-        else if (wen_b)begin
-            write_data_ok_b <= 1'b1;
-        end
-        else begin
-            write_data_ok_b <= 1'b0;
+            addr_b_r <= addr_b;
         end
     end
 	

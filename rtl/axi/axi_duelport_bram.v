@@ -23,9 +23,9 @@
 
 //duel port
 module axi_duelport_bram #(
-  parameter   DATA_WIDTH  = 32,               //数据位宽
-  parameter   ADDR_WIDTH  = 32,               //地址位宽              
-  parameter   ID_WIDTH    = 6,                //ID位宽
+  parameter   DATA_WIDTH  = `AXI_DATA_WIDTH,               //数据位宽
+  parameter   ADDR_WIDTH  = `AXI_ADDR_WIDTH,               //地址位宽              
+  parameter   ID_WIDTH    = `AXI_ID_WIDTH,                //ID位宽
   parameter   STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
 )(
   	input                       ACLK,
@@ -37,18 +37,18 @@ module axi_duelport_bram #(
 	input	   [1:0]	        AWBURST,
 	input	   [ID_WIDTH -1 :0] AWID,
 	input	 	                AWVALID,
-	output reg 	                AWREADY,
+	output     	                AWREADY,
 	
 	input	   [DATA_WIDTH-1:0] WDATA,
 	input	   [STRB_WIDTH-1:0] WSTRB,
 	input		                WLAST,
 	input	   [ID_WIDTH -1 :0] WID,
 	input	  	                WVALID,
-	output reg	                WREADY,
+	output   	                WREADY,
 	
 	output     [ID_WIDTH -1 :0] BID,
 	output     [1:0]            BRESP,
-	output reg	                BVALID,
+	output    	                BVALID,
 	input	  	                BREADY,
 	
 	input	   [ADDR_WIDTH-1:0] ARADDR,
@@ -57,13 +57,13 @@ module axi_duelport_bram #(
 	input	   [1:0]	        ARBURST,
 	input	   [ID_WIDTH -1 :0] ARID,
 	input	  	                ARVALID,
-	output  reg                 ARREADY,
+	output                      ARREADY,
 	
-	output reg [DATA_WIDTH-1:0]	RDATA,
+	output     [DATA_WIDTH-1:0]	RDATA,
 	output     [1:0]	        RRESP,
-	output reg	                RLAST,
+	output    	                RLAST,
 	output     [ID_WIDTH -1 :0] RID,
-	output reg                 RVALID,
+	output                      RVALID,
 	input	 	                RREADY
 	
 );  
@@ -95,6 +95,23 @@ module axi_duelport_bram #(
 	reg [2:0]write_state;
 	reg [2:0]next_write_state;
 		
+	// axi reg
+	reg [ADDR_WIDTH-1:0]write_start_addr;
+	reg [ADDR_WIDTH-1:0]write_burst_addr;
+	reg 		[8:0]	write_burst_step;
+	reg 	 [ADDR_WIDTH-1:0]awaddr_stop_addr;
+	reg    				    [3:0]	awlen;
+	reg     				[2:0]	awsize;
+	wire 			      	        wen;			
+	reg  [ID_WIDTH - 1:0]BID_temp;
+	
+	// sram bus
+	wire [ADDR_WIDTH-1:0]	    addr_a;
+	wire [DATA_WIDTH-1:0]		din_a;
+	wire [DATA_WIDTH-1:0]	    dout_a;
+	wire     [ADDR_WIDTH-1:0]write_mem_addr;
+	wire [3:0]		wea;
+//	assign write_blocking = 1'b0;
 	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
@@ -136,34 +153,19 @@ module axi_duelport_bram #(
 	       end
 	    endcase
 	end
+		
 	
-	// axi reg
-	reg [ADDR_WIDTH-1:0]write_start_addr;
-	reg [ADDR_WIDTH-1:0]write_burst_addr;
-	reg 		[8:0]	write_burst_step;
-	reg			          awaddr_cnt_flag;
-	reg 	 [ADDR_WIDTH-1:0]awaddr_stop_addr;
-	wire     [ADDR_WIDTH-1:0]awaddr_mem_addr;
-	reg    				    [3:0]	awlen;
-	reg     				[2:0]	awsize;
-	wire 			      	        wen;				
-	
-	// sram bus
-	wire  ena;
-	wire [ADDR_WIDTH-1:0]	    addr_a;
-	wire [DATA_WIDTH-1:0]		din_a;
-	wire [3:0]		wea;
-	assign write_blocking = 1'b0;
 	
     //======================================================================
-    //鍙傛暟瀵勫瓨	
+    //鍙傛暟�?�勫�?	
 	always@(posedge ACLK, negedge ARESETn)begin
 		if(!ARESETn)begin
 			write_start_addr	<= 0;
 			awlen				<= 0;
 			awsize				<= 0;
+			BID_temp            <= {ID_WIDTH{1'b0}};
 		end
-		else if(WRITE_DATA_OK)begin
+		else if(WRITE_ADDR_OK)begin
 			write_start_addr	<= AWADDR;
 			awlen			    <= AWLEN;
 			awsize			    <= AWSIZE;
@@ -185,7 +187,7 @@ module axi_duelport_bram #(
 			write_start_addr	<= 'd0;
 			awlen				<= 'd0;
 			awsize				<= 'd0;
-			BID_temp            <= 6'd0;
+			BID_temp            <= {ID_WIDTH{1'b0}};
 		end
 	end
 	
@@ -231,24 +233,18 @@ module axi_duelport_bram #(
 	end
 	
 	assign write_mem_addr = write_start_addr + write_burst_addr;
-	assign wen =  (BID_temp == WID)?WVALID & WREADY:1'b0;
-	assign WREADY = write_state[1];
+	assign wen =  WVALID & WREADY;
+	assign WREADY = (BID_temp == WID)?write_state[1]:1'b0;
 	assign AWREADY = write_state[0];
 	
 	assign BVALID  = write_state[2];
 	assign BRESP   = 2'd0;
 	assign BID = (BVALID)?BID_temp:'d0;
-	
-	// sram bus
-	wire  ena;
-	wire [ADDR_WIDTH-1:0]	    addr_a;
-	wire [DATA_WIDTH-1:0]		din_a;
-	wire [3:0]		wea;
-	
-	assign ena    = wen;
-	assign addr_a = {2'b00,write_mem_addr[ADDR_WIDTH-1:2]};
+
+	assign addr_a = write_mem_addr;
 	assign din_a  = WDATA;
-	assign wea    = WSTRB;		
+	assign wea    = WSTRB & {4{wen}};		
+
 
 //====================================================================
 //========== read channel
@@ -307,11 +303,10 @@ module axi_duelport_bram #(
 	//sram bus
 	reg 					mem2fifo_ptr_wen;
 	wire 					fifo2master_fetch_enable;
-	wire [ADDR_WIDTH - 1:0]	doutb;	
-	wire [ADDR_WIDTH - 1:0]	read_mem_addr;	
-	wire [ADDR_WIDTH - 1:0] addrb;
-	wire enb;
-	wire [DATA_WIDTH - 1:0] doutb;
+	wire [ADDR_WIDTH - 1:0] 	dout_b;	
+	wire [ADDR_WIDTH - 1:0] 	read_mem_addr;	
+	wire [ADDR_WIDTH - 1:0] addr_b;
+	reg enb;
 	
 	
 	always@(*) begin
@@ -323,7 +318,7 @@ module axi_duelport_bram #(
 		endcase
 	end
 
-	//assign	araddr_stop = arlen*araddr_step;	//璁＄畻姝ヨ繘娆℃暟
+	//assign	araddr_stop = arlen*araddr_step;	//璁＄畻姝ヨ繘娆℃�?
 	always@(*) begin
 		case(arsize)
 			3'h0:	read_burst_stop_addr = {28'h0,arlen};
@@ -335,14 +330,16 @@ module axi_duelport_bram #(
 
 	
 	assign fifo2master_fetch_enable = READ_DATA_OK;
+	
 
+//	assign enb = (read_burst_addr == read_burst_stop_addr)?1'b0:read_state[1];
 	assign read_mem_addr = read_start_addr + read_burst_addr;
-	assign addr_b = {2'b00,read_mem_addr[ADDR_WIDTH-1:2]};
+	assign addr_b = read_mem_addr;
+//	assign addr_b = {2'b00,read_mem_addr[ADDR_WIDTH-1:2]};
 	// wire addr_collid;
 	// wire read_blocking;
     // assign addr_collid    = (addr_a == addr_b)?1'b1:1'b0;
 	// assign read_blocking  = addr_collid && write_state[1];
-	assign enb = read_state[1];
 	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
@@ -353,25 +350,64 @@ module axi_duelport_bram #(
 		end
 	end
 	
+
+	
+    always@(posedge ACLK)begin
+		if(!ARESETn)begin
+			read_start_addr	<= 'd0;
+			arlen				<= 'd0;
+			arsize				<= 'd0;
+			RID_temp <= 0;
+		end
+		else if(READ_ADDR_OK && read_state[0])begin
+			read_start_addr	    <= ARADDR;
+			arlen				<= ARLEN;
+			arsize				<= ARSIZE;
+			RID_temp            <= ARID;
+		end
+		else if(read_state[1] && READ_LAST_OK)begin
+			read_start_addr	    <= 'd0;
+			arlen				<= 'd0;
+			arsize				<= 'd0;
+			RID_temp            <= 0;
+		end
+		else begin
+			read_start_addr	    <= read_start_addr;
+			arlen			    <= arlen;
+			arsize			    <= arsize;
+			RID_temp            <= RID_temp;
+		end
+	end
+	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			read_burst_addr <= 'd0;
-		end
-		else if(read_burst_addr == read_burst_stop_addr)begin
+			enb <= 1'b0;
+		end	
+		else if(READ_ADDR_OK && read_state[0])begin
 			read_burst_addr <= 'd0;
+			enb <= 1'b1;
 		end
-		else if(enb)begin
+		else if((read_burst_addr == read_burst_stop_addr) && read_state[1])begin
+			read_burst_addr <= read_burst_addr;
+			enb <= 1'b0;
+		end
+		else if(read_state[1])begin
 			read_burst_addr <= read_burst_addr + read_burst_step;
+			enb <= 1'b1;
 		end
 		else begin
 			read_burst_addr <= 'd0;
+			enb <= 1'b0;
 		end
 	end
 	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			fifo2master_ptr <= 'd0;
-			RLAST  <= 'd0;
+		end
+		else if(READ_LAST_OK && fifo2master_fetch_enable)begin
+			fifo2master_ptr <= 'd0;
 		end
 		else if(fifo2master_fetch_enable)begin
 			fifo2master_ptr <= fifo2master_ptr + 4'b1;
@@ -381,7 +417,22 @@ module axi_duelport_bram #(
 		end
 	end
 	
+	assign RLAST = (fifo2master_ptr == arlen)?RVALID:1'b0;
 		
+//	always@(posedge ACLK)begin
+//		if(!ARESETn)begin
+//			RLAST  <= 'd0;
+//		end
+//		else if((fifo2master_ptr == 4'b1110) && fifo2master_fetch_enable)begin
+//			RLAST <= RVALID;
+//		end
+//		else if((fifo2master_ptr == 4'b1111) && fifo2master_fetch_enable)begin
+//			RLAST <= 1'b0;
+//		end
+//		else begin
+//			RLAST <= RLAST;
+//		end
+//	end
 	assign ARREADY = read_state[0];
 	assign RID = (RVALID)?RID_temp:'d0;
     assign RRESP = 2'd0;
@@ -390,15 +441,17 @@ module axi_duelport_bram #(
     syc_fifo #(
 		.DATA_WIDTH(32),
 		.DEPTH(16),
-		.PTR_LENGTH(5))
-	(
-		.clk(ACLK)
+		.PTR_LENGTH(5)
+	)syc_fifo_inst(
+		.clk(ACLK),
 		.rst_n(ARESETn),
-		.wdata(doutb),
+		.wdata(dout_b),
+		.w_address(),
 		.w_req(mem2fifo_ptr_wen),
 		.write_enable(),
 		.full(),
 		.rdata(RDATA),
+		.r_address(),
 		.r_req(fifo2master_fetch_enable),
 		.read_enable(RVALID),
 		.empty()
@@ -408,19 +461,45 @@ module axi_duelport_bram #(
 
 //=================================================================================
 //memory itself
-	blk_mem_gen_1 your_instance_name (
-		.clka(ACLK),    // input wire clka
-		.ena(ena),      // input wire ena
-		.wea(wea),      // input wire [3 : 0] wea
-		.addra(addra),  // input wire [14 : 0] addra
-		.dina(dina),    // input wire [31 : 0] dina
-		.clkb(ACLK),    // input wire clkb
-		.rstb(!ARESETn),    // input wire rstb
-		.enb(enb),      // input wire enb
-		.addrb(addrb),  // input wire [14 : 0] addrb
-		.doutb(doutb)  // output wire [31 : 0] doutb
+`ifdef DRAM
+	sirv_duelport_ram #(
+		.FORCE_X2ZERO(0),
+		.DP(`MEMORY_DEPTH),
+		.DW(`DATA_WIDTH),
+		.MW(`RAM_MASK_WIDTH),
+		.AW(`DATA_WIDTH) 
+	)sirv_duelport_ram_inst(
+		.clk (ACLK ),
+		.rst_n (ARESETn ),
+		.cs  (1'b1),
+		.req_a(1'b1),
+		.we_a  (1'b0),
+		.addr_a({2'b00,addr_b[`BUS_WIDTH - 1:2]}),
+		.din_a (32'd0 ),
+		.wem_a (4'd0),
+		.dout_a(dout_b),
+		.req_b(1'b1),
+		.we_b  (wen  ),
+		.addr_b({2'b00,addr_a[`BUS_WIDTH - 1:2]}),
+		.din_b (din_a ),
+		.wem_b (wea),
+		.dout_b(dout_a)
 	);
 
+`else
+	blk_mem_gen_1 blk_mem_gen_1_32KB (
+		.clka(ACLK),    // input wire clka
+//		.ena(1'b1),      // input wire ena
+		.wea(wea),      // input wire [3 : 0] wea
+		.addra(addr_a),  // input wire [14 : 0] addra
+		.dina(din_a),    // input wire [31 : 0] dina
+		.clkb(ACLK),    // input wire clkb
+//		.rstb(!ARESETn),    // input wire rstb
+//		.enb(1'b1),      // input wire enb
+		.addrb(addr_b),  // input wire [14 : 0] addrb
+		.doutb(dout_b)  // output wire [31 : 0] doutb
+	);
+`endif
 
 endmodule
 

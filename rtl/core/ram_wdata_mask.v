@@ -53,7 +53,7 @@ module ram_wdata_mask(
                     memory_access_missalign <= 1'b0;
                 end
                 2'b01:begin
-                    ram_whalfword <= 2'b00;
+                    ram_whalfword <=  {1'b0,ram_we};
                     memory_access_missalign <= ram_we;
                 end
                 2'b10:begin
@@ -61,7 +61,7 @@ module ram_wdata_mask(
                     memory_access_missalign <= 1'b0;
                 end
                 2'b11:begin
-                    ram_whalfword <= 2'b00;
+                    ram_whalfword <=  {ram_we, 1'b0};
                     memory_access_missalign <= ram_we;
                 end
                 default:begin
@@ -81,19 +81,19 @@ module ram_wdata_mask(
                     memory_access_missalign <= 1'b0;
                 end
                 2'b01:begin
-                    ram_wword <= 1'b0;
+                    ram_wword <= {ram_we};
                     memory_access_missalign <= ram_we;
                 end
                 2'b10:begin
-                    ram_wword <= 1'b0;
+                    ram_wword <= {ram_we};
                     memory_access_missalign <= ram_we;
                 end
                 2'b11:begin
-                    ram_wword <= 1'b0;
+                    ram_wword <= {ram_we};
                     memory_access_missalign <= ram_we;
                 end
                 default:begin
-                    ram_wword <= 1'b0;
+                    ram_wword <= {ram_we};
                     memory_access_missalign <= 1'b0;
                 end
             endcase

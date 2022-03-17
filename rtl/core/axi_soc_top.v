@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 `include "include.v"
-`define PLL
+//`define PLL
 `define JTAG
 
 module axi_soc_top(
@@ -121,7 +121,6 @@ module axi_soc_top(
             succ <= ~riscv_core_inst.regfile_inst.rf[27];  // when = 1, run succ, otherwise fail
         end
     end
-    assign halted_ind = 1'b1;
     
     // jtag
     wire jtag_halt_req_o;
@@ -130,6 +129,7 @@ module axi_soc_top(
     wire jtag_reg_we_o;
     wire[`DATA_WIDTH - 1:0] jtag_reg_data_i;
     
+    assign halted_ind = ~jtag_halt_req_o;
     
     // master 2 interface
     wire[`BUS_WIDTH - 1:0]  m2_addr_i;
@@ -150,33 +150,42 @@ module axi_soc_top(
     wire [`RAM_MASK_WIDTH - 1: 0]s0_wem;
     wire s0_addr_ok;
     wire s0_data_ok;
-
+  
+    // slave 1 interface
+    wire[`BUS_WIDTH - 1:0]  s1_addr_o;
+    wire[`DATA_WIDTH - 1:0] s1_data_o;
+    wire[`DATA_WIDTH - 1:0]s1_data_i;
+    wire s1_req_o;
+    wire s1_we_o;
+    wire [`RAM_MASK_WIDTH - 1: 0]s1_wem;
+    wire s1_addr_ok;
+    wire s1_data_ok;
     
     // slave 2 interface
     wire[`BUS_WIDTH - 1:0]  s2_addr_o;
     wire[`DATA_WIDTH - 1:0] s2_data_o;
-    wire[`DATA_WIDTH - 1:0]s2_data_i;
+    wire[`DATA_WIDTH - 1:0] s2_data_i;
     wire s2_req_o;
     wire s2_we_o;
     wire [`RAM_MASK_WIDTH - 1: 0]s2_wem;
     wire s2_addr_ok;
     wire s2_data_ok;
         
-    // slave 4 interface
-    wire[`BUS_WIDTH - 1:0]  s4_addr_o;
-    wire[`DATA_WIDTH - 1:0]s4_data_o;
-    wire[`DATA_WIDTH - 1:0] s4_data_i;
-    wire s4_req_o;
-    wire s4_we_o;
-    wire [`RAM_MASK_WIDTH - 1: 0]s4_wem;
-    wire s4_addr_ok;
-    wire s4_data_ok;
+    // slave 3 interface
+    wire[`BUS_WIDTH - 1:0]  s3_addr_o;
+    wire[`DATA_WIDTH - 1:0] s3_data_o;
+    wire[`DATA_WIDTH - 1:0] s3_data_i;
+    wire s3_req_o;
+    wire s3_we_o;
+    wire [`RAM_MASK_WIDTH - 1: 0]s3_wem;
+    wire s3_addr_ok;
+    wire s3_data_ok;
     
     
     localparam  ADDR_WIDTH = `BUS_WIDTH;
     localparam  DATA_WIDTH = `DATA_WIDTH;
     localparam  STRB_WIDTH = `RAM_MASK_WIDTH;
-    localparam  ID_WIDTH   = 6;
+    localparam  ID_WIDTH   = `AXI_ID_WIDTH;
     
     //master 0 axi if
 	wire     [ADDR_WIDTH - 1:0] m0_AWADDR;
@@ -358,7 +367,7 @@ module axi_soc_top(
 	wire         [ID_WIDTH -1 :0] s1_RID;
 	wire                       s1_RVALID;
 	wire       	 	     	 s1_RREADY;
-	
+
     //slave 2 axi if
 	wire        [ADDR_WIDTH-1:0]  s2_AWADDR;
 	wire                 [1:0]  s2_AWBURST;
@@ -394,10 +403,42 @@ module axi_soc_top(
 	wire        [ID_WIDTH -1 :0] s2_RID;
 	wire                    s2_RVALID;
 	wire       		         s2_RREADY;
+    //slave3 axi if
+	wire        [ADDR_WIDTH-1:0]  s3_AWADDR;
+	wire                 [1:0]  s3_AWBURST;
+	wire                 [3:0]  s3_AWLEN;
+	wire         [STRB_WIDTH-1:0]    s3_WSTRB;
+	wire              [2:0]      s3_AWSIZE;
+	wire        [ID_WIDTH -1 :0] s3_AWID;
+	wire                         s3_AWVALID;
+	wire                       s3_AWREADY;
+	
+	wire        [DATA_WIDTH-1:0]  s3_WDATA;
+	wire                         s3_WLAST;
+	wire         [ID_WIDTH -1 :0] s3_WID;
+	wire                       s3_WVALID;
+	wire                       s3_WREADY;
+	
+	wire        [1:0]                 s3_BRESP;
+	wire          [ID_WIDTH -1 :0] s3_BID;
+	wire                     s3_BVALID;
+	wire                     s3_BREADY;
+	
+	wire        [ADDR_WIDTH-1:0]   s3_ARADDR;
+	wire            [3:0]            s3_ARLEN;
+	wire        [2:0]            s3_ARSIZE;
+	wire        [1:0]            s3_ARBURST;
+	wire         [ID_WIDTH -1 :0] s3_ARID;
+	wire                        s3_ARVALID;
+	wire                         s3_ARREADY;
+	
+	wire        [DATA_WIDTH-1:0]      s3_RDATA;
+	wire                          s3_RLAST;
+	wire        [1:0]                 s3_RRESP;
+	wire        [ID_WIDTH -1 :0] s3_RID;
+	wire                    s3_RVALID;
+	wire       		         s3_RREADY;
     
-
-
-
     wire [`BUS_WIDTH - 1:0]rom_address;
     wire [`DATA_WIDTH - 1:0]rom_rdata;
     wire [`BUS_WIDTH - 1:0]ram_address;
@@ -616,11 +657,11 @@ module axi_soc_top(
 	);
     
 
-  axi_arbiter#(
-    .DATA_WIDTH(32),
-    .ADDR_WIDTH(32), 
-    .ID_WIDTH(6)
-    )axi_arbiter_inst(
+  axi_arbiter_full#(
+    .DATA_WIDTH(DATA_WIDTH),
+    .ADDR_WIDTH(ADDR_WIDTH), 
+    .ID_WIDTH(ID_WIDTH)
+    )axi_arbiter_full_inst(
         .ACLK(clk),
         .ARESETn(rst_n),
         
@@ -628,14 +669,14 @@ module axi_soc_top(
         .m0_AWLEN(4'd0),
         .m0_AWSIZE(3'd0),
         .m0_AWBURST(2'd0),
-        .m0_AWID(6'd0),
+        .m0_AWID({ID_WIDTH{1'b0}}),
         .m0_AWVALID(1'd0),
         .m0_AWREADY(m0_AWREADY),
         
          .m0_WDATA(32'd0),
          .m0_WSTRB(4'd0),
          .m0_WLAST(1'd0),
-         .m0_WID(6'd0),
+         .m0_WID({ID_WIDTH{1'b0}}),
          .m0_WVALID(1'd0),
          .m0_WREADY(m0_WREADY),
          
@@ -799,26 +840,26 @@ module axi_soc_top(
          .s1_RREADY(s1_RREADY),
      
         //s2
-         .s2_AWADDR(s2_AWADDR),
-         .s2_AWBURST(s2_AWBURST),
-         .s2_AWLEN(s2_AWLEN),
-         .s2_WSTRB(s2_WSTRB),
-         .s2_AWSIZE(s2_AWSIZE),
-         .s2_AWID(s2_AWID),
-         .s2_AWVALID(s2_AWVALID),
-         .s2_AWREADY(s2_AWREADY),
+        .s2_AWADDR(s2_AWADDR),
+        .s2_AWBURST(s2_AWBURST),
+        .s2_AWLEN(s2_AWLEN),
+        .s2_WSTRB(s2_WSTRB),
+        .s2_AWSIZE(s2_AWSIZE),
+        .s2_AWID(s2_AWID),
+        .s2_AWVALID(s2_AWVALID),
+        .s2_AWREADY(s2_AWREADY),
         
         .s2_WDATA(s2_WDATA),
         .s2_WLAST(s2_WLAST),
         .s2_WID(s2_WID),
         .s2_WVALID(s2_WVALID),
         .s2_WREADY(s2_WREADY),
-    
+        
         .s2_BRESP(s2_BRESP),
         .s2_BID(s2_BID),
         .s2_BVALID(s2_BVALID),
         .s2_BREADY(s2_BREADY),
-    
+        
         .s2_ARADDR(s2_ARADDR),
         .s2_ARLEN(s2_ARLEN),
         .s2_ARSIZE(s2_ARSIZE),
@@ -826,14 +867,50 @@ module axi_soc_top(
         .s2_ARID(s2_ARID),
         .s2_ARVALID(s2_ARVALID),
         .s2_ARREADY(s2_ARREADY),
-    
+        
         .s2_RDATA(s2_RDATA),
         .s2_RLAST(s2_RLAST),
         .s2_RRESP(s2_RRESP),
         .s2_RID(s2_RID),
         .s2_RVALID(s2_RVALID),
-        .s2_RREADY(s2_RREADY)
-);
+        .s2_RREADY(s2_RREADY),
+        
+         //s3
+        .s3_AWADDR(s3_AWADDR),
+        .s3_AWBURST(s3_AWBURST),
+        .s3_AWLEN(s3_AWLEN),
+        .s3_WSTRB(s3_WSTRB),
+        .s3_AWSIZE(s3_AWSIZE),
+        .s3_AWID(s3_AWID),
+        .s3_AWVALID(s3_AWVALID),
+        .s3_AWREADY(s3_AWREADY),
+        
+        .s3_WDATA(s3_WDATA),
+        .s3_WLAST(s3_WLAST),
+        .s3_WID(s3_WID),
+        .s3_WVALID(s3_WVALID),
+        .s3_WREADY(s3_WREADY),
+        
+        .s3_BRESP(s3_BRESP),
+        .s3_BID(s3_BID),
+        .s3_BVALID(s3_BVALID),
+        .s3_BREADY(s3_BREADY),
+        
+        .s3_ARADDR(s3_ARADDR),
+        .s3_ARLEN(s3_ARLEN),
+        .s3_ARSIZE(s3_ARSIZE),
+        .s3_ARBURST(s3_ARBURST),
+        .s3_ARID(s3_ARID),
+        .s3_ARVALID(s3_ARVALID),
+        .s3_ARREADY(s3_ARREADY),
+        
+        .s3_RDATA(s3_RDATA),
+        .s3_RLAST(s3_RLAST),
+        .s3_RRESP(s3_RRESP),
+        .s3_RID(s3_RID),
+        .s3_RVALID(s3_RVALID),
+        .s3_RREADY(s3_RREADY)
+    );
 
     // gpio
     wire[1:0] io_in;
@@ -849,14 +926,14 @@ module axi_soc_top(
     gpio gpio_0(
         .clk(clk),
         .rst_n(rst_n),
-        .req_i(s4_req_o),
-        .we_i(s4_we_o),
-        .addr_i(s4_addr_o),
-        .data_i(s4_data_o),
-        .data_o(s4_data_i),
-        .addr_ok(s4_addr_ok),
-        .data_ok(s4_data_ok),
-        .wem(s4_wem),
+        .req_i(s3_req_o),
+        .we_i(s3_we_o),
+        .addr_i(s3_addr_o),
+        .data_i(s3_data_o),
+        .data_o(s3_data_i),
+        .addr_ok(s3_addr_ok),
+        .data_ok(s3_data_ok),
+        .wem(s3_wem),
         .io_pin_i(io_in),
         .reg_ctrl(gpio_ctrl),
         .reg_data(gpio_data)
@@ -871,63 +948,63 @@ module axi_soc_top(
 		.ACLK(clk),
 		.ARESETn(rst_n),
 		
-		.AWADDR(s2_AWADDR),
-		.AWLEN(s2_AWLEN),
-		.AWSIZE(s2_AWSIZE), //length. less than the width of bus b'010
-		.AWBURST(s2_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
-		.AWID(s2_AWID),
-		.AWVALID(s2_AWVALID),
-		.AWREADY(s2_AWREADY),
+		.AWADDR(s3_AWADDR),
+		.AWLEN(s3_AWLEN),
+		.AWSIZE(s3_AWSIZE), //length. less than the width of bus b'010
+		.AWBURST(s3_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
+		.AWID(s3_AWID),
+		.AWVALID(s3_AWVALID),
+		.AWREADY(s3_AWREADY),
 		
-		.WDATA(s2_WDATA),
-		.WSTRB(s2_WSTRB),
-		.WLAST(s2_WLAST),
-		.WID(s2_WID),
-		.WVALID(s2_WVALID),
-		.WREADY(s2_WREADY),
+		.WDATA(s3_WDATA),
+		.WSTRB(s3_WSTRB),
+		.WLAST(s3_WLAST),
+		.WID(s3_WID),
+		.WVALID(s3_WVALID),
+		.WREADY(s3_WREADY),
 		
-		.BRESP(s2_BRESP),
-		.BID(s2_BID),
-		.BVALID(s2_BVALID),
-		.BREADY(s2_BREADY),
+		.BRESP(s3_BRESP),
+		.BID(s3_BID),
+		.BVALID(s3_BVALID),
+		.BREADY(s3_BREADY),
 
-		.ARADDR(s2_ARADDR),
-		.ARLEN(s2_ARLEN),
-		.ARSIZE(s2_ARSIZE),
-		.ARBURST(s2_ARBURST),
-		.ARID(s2_ARID),
-		.ARVALID(s2_ARVALID),
-		.ARREADY(s2_ARREADY),
+		.ARADDR(s3_ARADDR),
+		.ARLEN(s3_ARLEN),
+		.ARSIZE(s3_ARSIZE),
+		.ARBURST(s3_ARBURST),
+		.ARID(s3_ARID),
+		.ARVALID(s3_ARVALID),
+		.ARREADY(s3_ARREADY),
 		
-		.RDATA(s2_RDATA),
-		.RRESP(s2_RRESP),
-		.RLAST(s2_RLAST),
-		.RID(s2_RID),
-		.RVALID(s2_RVALID),
-		.RREADY(s2_RREADY),
+		.RDATA(s3_RDATA),
+		.RRESP(s3_RRESP),
+		.RLAST(s3_RLAST),
+		.RID(s3_RID),
+		.RVALID(s3_RVALID),
+		.RREADY(s3_RREADY),
 
-		.mem_address(s4_addr_o),
-		.mem_wdata(s4_data_o),
-		.mem_rdata(s4_data_i),
-		.mem_wmask(s4_wem),
-		.mem_req(s4_req_o),
-		.mem_we(s4_we_o),
-		.mem_addr_ok(s4_addr_ok),
-		.mem_data_ok(s4_data_ok)
+		.mem_address(s3_addr_o),
+		.mem_wdata(s3_data_o),
+		.mem_rdata(s3_data_i),
+		.mem_wmask(s3_wem),
+		.mem_req(s3_req_o),
+		.mem_we(s3_we_o),
+		.mem_addr_ok(s3_addr_ok),
+		.mem_data_ok(s3_data_ok)
 	);	
 
     // timer模块例化
     timer timer_0(
         .clk(clk),
         .rst_n(rst_n),
-        .data_i(s2_data_o),
-        .addr_i(s2_addr_o),
-        .req_i(s2_req_o),
-        .we_i(s2_we_o),
-        .data_o(s2_data_i),
-        .addr_ok(s2_addr_ok),
-        .data_ok(s2_data_ok),
-        .wem(s2_wem),
+        .data_i(s1_data_o),
+        .addr_i(s1_addr_o),
+        .req_i(s1_req_o),
+        .we_i(s1_we_o),
+        .data_o(s1_data_i),
+        .addr_ok(s1_addr_ok),
+        .data_ok(s1_data_ok),
+        .wem(s1_wem),
         .int_sig_o(timer0_int)
     );
     
@@ -975,6 +1052,77 @@ module axi_soc_top(
 		.RVALID(s1_RVALID),
 		.RREADY(s1_RREADY),
 		
+		.mem_address(s1_addr_o),
+		.mem_wdata(s1_data_o),
+		.mem_rdata(s1_data_i),
+		.mem_wmask(s1_wem),
+		.mem_req(s1_req_o),
+		.mem_we(s1_we_o),
+		.mem_addr_ok(s1_addr_ok),
+		.mem_data_ok(s1_data_ok)
+	);	
+	
+	wire s2_rsp_ready_i;
+    uart uart_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .data_i(s2_data_o),
+        .addr_i(s2_addr_o),
+        .sel_i(s2_wem),
+        .we_i(s2_we_o),
+        .data_o(s2_data_i),  
+        .req_valid_i(s2_req_o),
+        .req_ready_o(s2_addr_ok),
+        .rsp_valid_o(s2_data_ok),
+        .rsp_ready_i(s2_rsp_ready_i),
+        .tx_pin(uart_tx_pin),
+        .rx_pin(uart_rx_pin)
+    );
+    
+    axi2srambus#(
+		.DATA_WIDTH(DATA_WIDTH),
+		.ADDR_WIDTH(ADDR_WIDTH),
+		.ID_WIDTH(ID_WIDTH),
+		.STRB_WIDTH(DATA_WIDTH/8)
+	)axi2srambus_uart_inst(
+		.ACLK(clk),
+		.ARESETn(rst_n),
+		
+		.AWADDR(s2_AWADDR),
+		.AWLEN(s2_AWLEN),
+		.AWSIZE(s2_AWSIZE), //length. less than the width of bus b'010
+		.AWBURST(s2_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
+		.AWID(s2_AWID),
+		.AWVALID(s2_AWVALID),
+		.AWREADY(s2_AWREADY),
+		
+		.WDATA(s2_WDATA),
+		.WSTRB(s2_WSTRB),
+		.WLAST(s2_WLAST),
+		.WID(s2_WID),
+		.WVALID(s2_WVALID),
+		.WREADY(s2_WREADY),
+		
+		.BRESP(s2_BRESP),
+		.BID(s2_BID),
+		.BVALID(s2_BVALID),
+		.BREADY(s2_BREADY),
+
+		.ARADDR(s2_ARADDR),
+		.ARLEN(s2_ARLEN),
+		.ARSIZE(s2_ARSIZE),
+		.ARBURST(s2_ARBURST),
+		.ARID(s2_ARID),
+		.ARVALID(s2_ARVALID),
+		.ARREADY(s2_ARREADY),
+		
+		.RDATA(s2_RDATA),
+		.RRESP(s2_RRESP),
+		.RLAST(s2_RLAST),
+		.RID(s2_RID),
+		.RVALID(s2_RVALID),
+		.RREADY(s2_RREADY),
+		
 		.mem_address(s2_addr_o),
 		.mem_wdata(s2_data_o),
 		.mem_rdata(s2_data_i),
@@ -982,7 +1130,8 @@ module axi_soc_top(
 		.mem_req(s2_req_o),
 		.mem_we(s2_we_o),
 		.mem_addr_ok(s2_addr_ok),
-		.mem_data_ok(s2_data_ok)
+		.mem_data_ok(s2_data_ok),
+		.mem_data_ok_resp(s2_rsp_ready_i)
 	);	
     
 
@@ -1113,12 +1262,12 @@ module axi_soc_top(
 		.mem_data_ok(m2_data_ok)
 	);
 //	wire ARREADY_test;
-   AXI_DUELPORTSRAM#(
+   axi_duelport_bram#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
 		.ID_WIDTH(ID_WIDTH),
 		.STRB_WIDTH(DATA_WIDTH/8)
-	)AXI_DUELPORTSRAM_inst(
+	)axi_duelport_bram_inst(
 		.ACLK(clk),
 		.ARESETn(rst_n),
 		

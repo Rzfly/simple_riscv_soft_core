@@ -29,6 +29,7 @@
 `define MEMORY_DEPTH 32768
 `define MEMORY_WIDTH 15
 `define JTAG_RESET_FF_LEVELS 5
+`define CPU_CLOCK_HZ 50000000
 //p58 R-type
 `define FUNC7_WIDTH 7
 `define RS2_WIDTH 5
@@ -41,6 +42,10 @@
 `define CsrMemAddrWIDTH 12
 `define True  1'b1
 `define False 1'b0
+
+`define AXI_DATA_WIDTH 32
+`define AXI_ADDR_WIDTH 32
+`define AXI_ID_WIDTH   7
 
 //p59 I-type
 `define JAL_IMM_WIDTH 20

@@ -20,6 +20,7 @@ module control(
 	output reg  csr_type,
 	output reg  fence_type,
 	output reg  lui_type,	
+	output r_type_ins,	
 	output [`OP_WIDTH - 1:0]ins_opcode,
 	output [`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC7_WIDTH]ins_func7,
 	output [`DATA_WIDTH - 1:`DATA_WIDTH - `FUNC6_WIDTH]ins_func6,
@@ -40,7 +41,8 @@ module control(
     assign rs1 = instruction[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH :`DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH];
     assign ins_func3 = instruction[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH : `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH];
     assign rd = instruction[`DATA_WIDTH - 1 - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH: `DATA_WIDTH - `FUNC7_WIDTH - `RS2_WIDTH - `RS1_WIDTH - `FUNC3_WIDTH - `RD_WIDTH];
-
+    assign r_type_ins = (ins_opcode == `R_TYPE)?1'b1:1'b0;
+    
     always@(*)begin
         case(ins_opcode)
             //add

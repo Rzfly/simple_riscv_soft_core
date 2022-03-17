@@ -43,7 +43,11 @@ module timer(
 
     reg read_data_ok;
     reg write_data_ok;
-    assign addr_ok = req_i;
+    wire ren;
+    wire wen;
+    assign ren = addr_ok && we_i && req_i;
+    assign wen = addr_ok && !we_i &&  req_i;
+    assign addr_ok = rst_n;
     assign data_ok = read_data_ok | write_data_ok;
     // [0]: timer enable
     // [1]: timer int enable
@@ -85,7 +89,7 @@ module timer(
             timer_value <=  0;
             write_data_ok <= 1'b0;
         end else if(req_i)begin
-            if (we_i) begin
+            if (wen) begin
                 write_data_ok <= 1'b1;
                 case (addr_i[3:0])
                     REG_CTRL: begin
@@ -96,6 +100,7 @@ module timer(
                     end
                 endcase
             end else begin
+                write_data_ok <= 1'b0;
                 if ((timer_ctrl[0] == 1'b1) && (timer_count >= timer_value)) begin
                     timer_ctrl[0] <= 1'b0;
                     timer_ctrl[2] <= 1'b1;
@@ -112,8 +117,25 @@ module timer(
         if (!rst_n) begin
             data_o <= 0;
             read_data_ok <= 1'b0;
-        end else if(addr_ok) begin
+        end else if(ren) begin
             read_data_ok <= 1'b1;
+            case (addr_i[3:0])
+                REG_VALUE: begin
+                    data_o <= timer_value;
+                end
+                REG_CTRL: begin
+                    data_o <= timer_ctrl;
+                end
+                REG_COUNT: begin
+                    data_o <= timer_count;
+                end
+                default: begin
+                    data_o <= 0;
+                end
+            endcase
+        end
+        else begin
+            read_data_ok <= 1'b0;
             case (addr_i[3:0])
                 REG_VALUE: begin
                     data_o <= timer_value;

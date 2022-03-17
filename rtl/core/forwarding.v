@@ -111,3 +111,26 @@ module forwarding_id(
 	   endcase
 	end
 endmodule
+
+
+
+module forwarding_id_simple(
+    input [`DATA_WIDTH - 1:0]rs1_data_id,
+    input [`DATA_WIDTH - 1:0]rs2_data_id,
+    input [`DATA_WIDTH - 1:0]ex2wb_wdata,
+    input to_wb_valid,
+	input [`RS1_WIDTH -1:0]rs1_id,
+	input [`RS2_WIDTH -1:0]rs2_id,
+	input [`RD_WIDTH -1:0]rd_ex,
+	input  write_reg_ex,
+	output  [`DATA_WIDTH - 1:0]rs1_data_forward_id,
+	output  [`DATA_WIDTH - 1:0]rs2_data_forward_id
+);
+
+	wire rs1_forward = (rd_ex == rs1_id)? ( write_reg_ex & to_wb_valid & (|rd_ex) ):1'b0;
+	wire rs2_forward = (rd_ex == rs2_id)? ( write_reg_ex & to_wb_valid & (|rd_ex) ):1'b0;
+	
+	assign rs1_data_forward_id = (rs1_forward)?ex2wb_wdata:rs1_data_id;
+	assign rs2_data_forward_id = (rs2_forward)?ex2wb_wdata:rs2_data_id;
+	
+endmodule

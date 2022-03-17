@@ -11,11 +11,13 @@ module syc_fifo#(
 	input rst_n,
 	//master
 	input [DATA_WIDTH - 1:0]wdata,
+	output [PTR_LENGTH - 2:0]w_address,
 	input w_req,
 	output write_enable,
 	output full,
 	//slave
 	output [DATA_WIDTH - 1:0]rdata,
+	output [PTR_LENGTH - 2:0]r_address,
 	input  r_req,
 	output read_enable,
 	output empty
@@ -25,8 +27,6 @@ module syc_fifo#(
 	reg [DATA_WIDTH - 1:0]saving_regs[DEPTH - 1 :0];
 	reg [PTR_LENGTH - 1:0]wptr;
 	reg [PTR_LENGTH - 1:0]rptr;
-	wire [PTR_LENGTH - 2:0]w_address;
-	wire [PTR_LENGTH - 2:0]r_address;
 	assign w_address = wptr[PTR_LENGTH - 2:0];
 	assign r_address = rptr[PTR_LENGTH - 2:0];
 	

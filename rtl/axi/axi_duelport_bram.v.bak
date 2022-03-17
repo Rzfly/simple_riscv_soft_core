@@ -382,6 +382,20 @@ module axi_duelport_bram #(
 	end
 	
 		
+	always@(posedge ACLK)begin
+		if(!ARESETn)begin
+			RLAST  <= 'd0;
+		end
+		else if((fifo2master_ptr == 4'b1110) && fifo2master_fetch_enable)begin
+			RLAST <= RVALID;
+		end
+		else if((fifo2master_ptr == 4'b1111) && fifo2master_fetch_enable)begin
+			RLAST <= 1'b0;
+		end
+		else begin
+			RLAST <= RLAST;
+		end
+	end
 	assign ARREADY = read_state[0];
 	assign RID = (RVALID)?RID_temp:'d0;
     assign RRESP = 2'd0;
@@ -395,10 +409,12 @@ module axi_duelport_bram #(
 		.clk(ACLK)
 		.rst_n(ARESETn),
 		.wdata(doutb),
+		.w_address(),
 		.w_req(mem2fifo_ptr_wen),
 		.write_enable(),
 		.full(),
 		.rdata(RDATA),
+		.r_address(),
 		.r_req(fifo2master_fetch_enable),
 		.read_enable(RVALID),
 		.empty()

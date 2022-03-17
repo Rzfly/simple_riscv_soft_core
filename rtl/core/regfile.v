@@ -30,7 +30,7 @@ module regfile(
     wire forward_rs2;
     assign forward_rs2 = (wa == rs2)?write_enable:1'b0;
     
-	reg [`DATA_WIDTH - 1:0] rf[0:31];
+	reg [`DATA_WIDTH - 1:0] rf[31:0];
     integer i;
 //    //��֤����д���?
 //	always @(negedge clk) begin

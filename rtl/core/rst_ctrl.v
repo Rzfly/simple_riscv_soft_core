@@ -31,6 +31,7 @@ module rst_ctrl(
 
     wire ext_rst_r;
 
+    //async reset sync release
     gen_ticks_sync #(
         .DP(2),
         .DW(1)
@@ -43,7 +44,7 @@ module rst_ctrl(
 
     reg[`JTAG_RESET_FF_LEVELS-1:0] jtag_rst_r;
 
-    always @ (posedge clk) begin
+    always @ (posedge clk ) begin
         if (!rst_ext_i) begin
             jtag_rst_r[`JTAG_RESET_FF_LEVELS-1:0] <= {`JTAG_RESET_FF_LEVELS{1'b1}};
         end if (rst_jtag_i) begin
@@ -87,31 +88,4 @@ module gen_ticks_sync #(
 
     assign dout = sync_dat[DP-1];
   
-endmodule
-
-// 复位后输出为0的触发器
-module gen_rst_0_dff #(
-    parameter DW = 32)(
-
-    input wire clk,
-    input wire rst_n,
-
-    input wire[DW-1:0] din,
-    output wire[DW-1:0] qout
-
-    );
-
-    reg[DW-1:0] qout_r;
-
-//    always @ (posedge clk or negedge rst_n) begin
-    always @ (posedge clk) begin
-        if (!rst_n) begin
-            qout_r <= {DW{1'b0}};
-        end else begin                  
-            qout_r <= din;
-        end
-    end
-
-    assign qout = qout_r;
-
 endmodule

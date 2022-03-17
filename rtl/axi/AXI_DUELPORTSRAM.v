@@ -23,9 +23,9 @@
 
 //duel port
 module AXI_DUELPORTSRAM #(
-  parameter   DATA_WIDTH  = 32,               //数据位宽
-  parameter   ADDR_WIDTH  = 32,               //地址位宽              
-  parameter   ID_WIDTH    = 6,                //ID位宽
+  parameter   DATA_WIDTH  = `AXI_DATA_WIDTH,               //数据位宽
+  parameter   ADDR_WIDTH  = `AXI_ADDR_WIDTH,               //地址位宽              
+  parameter   ID_WIDTH    = `AXI_ID_WIDTH,                //ID位宽
   parameter   STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
 )(
   	input                       ACLK,
@@ -170,7 +170,7 @@ module AXI_DUELPORTSRAM #(
 			RLAST <= 1'b0;
 			ARREADY <= 1'b0;
 			RDATA   <= 32'd0;
-			RID_temp <= 6'd0;
+			RID_temp <= {ID_WIDTH{1'b0}};
 		end
 		//handshake ok
 		else if(read_state[0] & READ_ADDR_OK)begin
@@ -190,7 +190,7 @@ module AXI_DUELPORTSRAM #(
 			RVALID <= 1'b0;
 			RLAST <= 1'b0;
 			RDATA   <= 32'd0;
-			RID_temp <= 6'd0;
+			RID_temp <= {ID_WIDTH{1'b0}};
 		end
 		else if(read_state[1] && mem_addr_ok_a)begin
 			req_a   <= 1'b0;
@@ -217,7 +217,7 @@ module AXI_DUELPORTSRAM #(
 			RVALID <= 1'b0;
 			RLAST <= 1'b0;
 			RDATA   <= 32'd0;
-			RID_temp <= 6'd0;
+			RID_temp <= {ID_WIDTH{1'b0}};
 		end
 		else if(read_state[2] && READ_DATA_OK )begin
 			req_a   <= 1'b0;
@@ -226,7 +226,7 @@ module AXI_DUELPORTSRAM #(
 			RVALID <= 1'b0;
 			RLAST <= 1'b0;
 			RDATA   <= 32'd0;
-			RID_temp <= 6'd0;
+			RID_temp <= {ID_WIDTH{1'b0}};
 	    end
 	    else begin
 			req_a   <= req_a;
@@ -282,7 +282,7 @@ module AXI_DUELPORTSRAM #(
 			wem_b <= 4'd0;
 			din_b  <= 32'd0;	
 			addr_b  <= 32'd0;	
-			BID_temp <= 6'd0;	
+			BID_temp <=  {ID_WIDTH{1'b0}};	
 			AWREADY <= 1'd0;
 			WREADY <= 1'd0;	
 			BVALID <= 1'd0;	
@@ -304,7 +304,7 @@ module AXI_DUELPORTSRAM #(
 			wem_b <= 4'd0;
 			din_b  <= 32'd0;	
 			addr_b  <=  32'd0;
-			BID_temp <= 6'd0;	
+			BID_temp <= {ID_WIDTH{1'b0}};	
 			AWREADY <= 1'b1;
 			WREADY <= 1'b1;	
 			BVALID <= 1'd0;	
@@ -337,7 +337,7 @@ module AXI_DUELPORTSRAM #(
 			wem_b <= 4'd0;
 			din_b  <= 32'd0;	
 			addr_b  <=  32'd0;
-			BID_temp <= 6'd0;	
+			BID_temp <= {ID_WIDTH{1'b0}};
 			AWREADY <= 1'b1;
 			WREADY <= 1'b1;	
 			BVALID <= 1'd0;	
@@ -348,7 +348,7 @@ module AXI_DUELPORTSRAM #(
 			wem_b <= 4'd0;
 			din_b  <= 32'd0;	
 			addr_b  <= 32'd0;
-			BID_temp <= 6'd0;
+			BID_temp <= {ID_WIDTH{1'b0}};
 			AWREADY <= 1'b0;
 			WREADY <= 1'b0;	
 			BVALID <= 1'd0;	
@@ -369,7 +369,7 @@ module AXI_DUELPORTSRAM #(
 	assign BID = (BVALID)?BID_temp:'d0;
     assign BRESP = 2'd0;
 	
-	sirv_duelport_ram #(
+	sram_bus_duelport_ram #(
 		.FORCE_X2ZERO(0),
 		.DP(`MEMORY_DEPTH),
 		.DW(`DATA_WIDTH),

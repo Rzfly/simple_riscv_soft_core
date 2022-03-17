@@ -21,10 +21,10 @@
 
 //smaster
 module axi_r_channel_master_immd#(
-    parameter DATA_WIDTH = 32,
-    parameter ADDR_WIDTH = 32,
-    parameter ID_WIDTH    = 6,
-    parameter STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
+  parameter   DATA_WIDTH  = `AXI_DATA_WIDTH,               //数据位宽
+  parameter   ADDR_WIDTH  = `AXI_ADDR_WIDTH,               //地址位宽              
+  parameter   ID_WIDTH    = `AXI_ID_WIDTH,                //ID位宽
+  parameter   STRB_WIDTH  = (DATA_WIDTH/8)    //STRB位宽
 )(
     /********* clock & reset *********/
 	input                       ACLK,
@@ -57,9 +57,7 @@ module axi_r_channel_master_immd#(
     input                       data_resp,
 	output 					raddr_ok,
 	output 	reg 			rdata_ok
-	
-	
-	
+
 );  
 
     wire AXI_ADDR_OK;

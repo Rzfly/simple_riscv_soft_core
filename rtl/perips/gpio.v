@@ -44,7 +44,11 @@ module gpio(
     localparam GPIO_DATA = 4'h4;
     reg read_data_ok;
     reg write_data_ok;
-    assign addr_ok = req_i;
+    wire ren;
+    wire wen;
+    assign wen  = addr_ok && we_i && req_i;
+    assign ren  = addr_ok && !we_i &&  req_i;
+    assign addr_ok = rst_n;
     assign data_ok = read_data_ok | write_data_ok;
     // �?2位控�?1个IO的模式，�?多支�?16个IO
     // 0: 高阻�?1：输出，2：输�?
@@ -64,7 +68,7 @@ module gpio(
             gpio_ctrl <= 32'h0;
             write_data_ok <= 1'b0;
         end else if(req_i == 1'b1) begin
-            if (we_i == 1'b1) begin
+            if (wen) begin
                 write_data_ok <= 1'b1;
                 case (addr_i[3:0])
                     GPIO_CTRL: begin
@@ -75,6 +79,7 @@ module gpio(
                     end
                 endcase
             end else begin
+                write_data_ok <= 1'b0;
                 if (gpio_ctrl[1:0] == 2'b10) begin
                     gpio_data[0] <= io_pin_i[0];
                 end
@@ -93,7 +98,7 @@ module gpio(
         if (!rst_n) begin
             data_o <= 32'h0;
             read_data_ok <= 1'b0;
-        end else if(addr_ok) begin
+        end else if(ren) begin
             read_data_ok <= 1'b1;
             case (addr_i[3:0])
                 GPIO_CTRL: begin
