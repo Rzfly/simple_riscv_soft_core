@@ -8,49 +8,53 @@ module cache2axi#(
 	input ACLK,
 	input ARESETn,
 	//from master
+	input [2:0]master_id,
+	input [3:0]slave_id,
+	//read channel
 	input rd_req,
-	input [2:0]rd_type,
+	input [3:0]rd_type,
 	input [`BUS_WIDTH - 1 : 0]rd_addr,
 	output rd_rdy,
 	output ret_valid,
 	output ret_last,
 	output [`DATA_WIDTH - 1:0]ret_data,
-	input wr_req,
-	input [2:0]wr_type,
-	input [`BUS_WIDTH - 1 : 0]wr_addr,
+	//write channel
+	input                      wr_req,
+	input [3:0]                wr_type,
+	input [`BUS_WIDTH - 1 : 0] wr_addr,
 	input [`RAM_MASK_WIDTH - 1 : 0]wr_wstrb,
 	//for word
-	input [127: 0]wr_data,
-	output wr_rdy
-	input			      	mem_writing,
-	input 	[ADDR_WIDTH -1:0]  	last_write_address,
+	input  [127: 0]            wr_data,
+	output                     wr_rdy,
+	input			      	    ext_mem_writing,
+	input 	[ADDR_WIDTH -1:0]  	ext_last_write_address,
 	
-	output			      		mem_writing,
-	output [ADDR_WIDTH -1:0]  	last_write_address,
+	output   			      		mem_writing,
+	output reg [ADDR_WIDTH -1:0]  	last_write_address,
 	
 	//to slave
-    	//address
+    //address
 	output	reg[ADDR_WIDTH-1:0] AWADDR,
 	output	reg[3:0]            AWLEN,
 	output	reg[2:0]            AWSIZE, 
-	output	reg[1:0]	    AWBURST,
+	output	reg[1:0]	        AWBURST,
 	output	reg[ID_WIDTH - 1:0] AWID,
 	output  reg                 AWVALID,
 	input                       AWREADY,
     //data
 	output	reg[DATA_WIDTH-1:0] WDATA,
-    	output  reg[STRB_WIDTH-1:0] WSTRB,//mask
+    output  reg[STRB_WIDTH-1:0] WSTRB,//mask
    	output  reg                 WLAST,
 	output	   [ID_WIDTH - 1:0] WID,//match awid
-    	output  reg                 WVALID,
-    	input                       WREADY,
+    output  reg                 WVALID,
+    input                       WREADY,
     //resp
    	input      [1:0]            BRESP,//00 = OKAY
 	input	   [ID_WIDTH - 1:0] BID,//match awid
-    	input                       BVALID,
+    input                       BVALID,
    	output  reg                 BREADY,
    	
-   		//address                
+    //address                
 	output reg [ADDR_WIDTH-1:0] ARADDR,
 	output reg [3:0]            ARLEN,
 	output reg [2:0]	     ARSIZE,
@@ -64,11 +68,9 @@ module cache2axi#(
 	input    	                RLAST,
 	input      [ID_WIDTH-1:0]	RID,
 	input                       RVALID,
-	output reg                 RREADY
-	
-	
-	
+	output reg                  RREADY
 );
+
 //*************************************************************
 //	cache write channel
 //*************************************************************
@@ -94,8 +96,20 @@ module cache2axi#(
 	reg [31:0]cache_wr_data_d[3:0];
 	reg [1:0]w_ptr_end;
 	reg [2:0]wr_type_d;
-//	reg [3:0]awlen_temp;
-	wire wlast;
+	reg [1:0]wdata_ptr;
+	wire [1:0]wdata_ptr_next;
+	wire [3:0]awlen;
+	wire wlast_next;
+	
+	wire [ID_WIDTH - 1:0]axi_awid;
+	wire [ID_WIDTH - 1:0]axi_wid;
+
+	assign awlen = wr_type;
+	
+	assign wdata_ptr_next = wdata_ptr + 1;
+	assign axi_awid = {master_id, slave_id};
+	assign axi_wid = {master_id, slave_id};
+
 	always@(*)begin
 		case(wr_type_d)
 			3'b000:begin
@@ -115,7 +129,7 @@ module cache2axi#(
 			end
 		endcase
 	end
-	assign wlast = (w_ptr_end == wdata_ptr)?1'b1:1'b0;
+	assign wlast_next = (w_ptr_end == wdata_ptr)?1'b1:1'b0;
 	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
@@ -134,7 +148,6 @@ module cache2axi#(
 		end
 	end
 	
-	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			write_state <= waddr_state_idle;
@@ -143,7 +156,6 @@ module cache2axi#(
 			write_state <= next_write_state;
 		end
 	end
-	
 	
 //	assign wdata_ok = wresp_state[1] && BVALID;
 	assign wr_rdy = write_state[0];
@@ -179,8 +191,8 @@ module cache2axi#(
 			end
 			//write over
 			waddr_state_wait_over:begin
-                		if( WRITE_RESP_OK )begin
-					next_write_state <= waddr_state_idle;
+                if( WRITE_RESP_OK )begin
+                    next_write_state <= waddr_state_idle;
 				end
 				else begin
 					next_write_state <= waddr_state_wait_over;
@@ -201,35 +213,32 @@ module cache2axi#(
 		else if( write_state[0])begin
 			BREADY   <= 0;
 		end
-		else if( write_state[3] && WRITE_RESP_OK && wen)begin
-			BREADY   <= 0;
-		end
 		else if( write_state[3] && WRITE_RESP_OK)begin
 			BREADY   <= 0;
 		end
 		else if( write_state[3] || write_state[1] || write_state[2])begin
-			BREADY   <= data_resp;
+			BREADY   <= 1'b1;
 		end
 		else begin
 			BREADY   <= BREADY;
 	   end
 	end
 	
-		//write_fsm
-    always@(posedge ACLK)begin
-		if(!ARESETn)begin
-			wdata_ok <= 0;
-		end
-		else if( write_state[0] || write_state[1] || write_state[2])begin
-			wdata_ok <= 0;
-		end
-		else if( write_state[3] && WRITE_RESP_OK)begin
-			wdata_ok <= 1;
-		end
-		else begin
-			wdata_ok <= wdata_ok;
-	   end
-	end
+    //write_fsm
+//    always@(posedge ACLK)begin
+//		if(!ARESETn)begin
+//			wdata_ok <= 0;
+//		end
+//		else if( write_state[0] || write_state[1] || write_state[2])begin
+//			wdata_ok <= 0;
+//		end
+//		else if( write_state[3] && WRITE_RESP_OK)begin
+//			wdata_ok <= 1;
+//		end
+//		else begin
+//			wdata_ok <= wdata_ok;
+//	   end
+//	end
 	
 	//write_fsm
     always@(posedge ACLK)begin
@@ -251,16 +260,16 @@ module cache2axi#(
 			last_write_address <= 0;
 		end
 		//idle or wait
-		else if( write_state[0] && wen )begin
+		else if( write_state[0] && wr_req )begin
 			AWADDR	 <= wr_addr;
 			AWVALID  <= 1;
-			AWID     <= awid;
+			AWID     <= axi_awid;
 			AWLEN    <= awlen;
-			AWSIZE   <= awsize;
+			AWSIZE   <= 3'b010;
 			AWBURST  <= 2'b01;
 			
 			WDATA    <= 'd0;
-			WID_TEMP <= awid;
+			WID_TEMP <= axi_wid;
 			WSTRB    <= wr_wstrb;
 			WVALID   <= 0;
 			WLAST    <= 0;	
@@ -283,7 +292,6 @@ module cache2axi#(
 			wdata_ptr <= 0;
 			last_write_address <= 0;
 		end
-
 		else if( write_state[1] && WRITE_ADDR_OK)begin
 			AWADDR	 <= 0;
 			AWVALID  <= 0;
@@ -296,8 +304,8 @@ module cache2axi#(
 			WDATA    <= cache_wr_data_d[wdata_ptr];
 			WSTRB    <= WSTRB;
 			WVALID   <= 1'b1;
-			WLAST    <= wlast;
-			wdata_ptr <= wdata_ptr + 1;
+			WLAST    <= wlast_next;
+			wdata_ptr <= wdata_ptr_next;
 			last_write_address <= last_write_address;
 		end
 		else if( write_state[2] && WRITE_LAST_OK)begin
@@ -328,25 +336,9 @@ module cache2axi#(
 			WDATA    <= cache_wr_data_d[wdata_ptr];
 			WSTRB    <= WSTRB;
 			WVALID   <= 1'b1;
-			WLAST    <= wlast;
-			wdata_ptr <= wdata_ptr + 1;
+			WLAST    <= wlast_next;
+			wdata_ptr <= wdata_ptr_next;
 			last_write_address <= last_write_address;
-		end
-		else if( write_state[3] && WRITE_RESP_OK && wen)begin
-			AWADDR	 <= wr_addr;
-			AWVALID  <= 1;
-			AWID     <= awid;
-			AWLEN    <= awlen;
-			AWSIZE   <= awsize;
-			AWBURST  <= 2'b01;
-			
-			WDATA    <= 'd0;
-			WID_TEMP <= awid;
-			WSTRB    <= wr_wstrb;
-			WVALID   <= 0;
-			WLAST    <= 0;	
-			wdata_ptr <= 0;
-			last_write_address <= wr_addr;
 		end
 		else if( write_state[3])begin
 			AWADDR	 <= 0;
@@ -383,13 +375,13 @@ module cache2axi#(
 	end
 
 	assign WID  = (write_state[2])?WID_TEMP:{ID_WIDTH{1'b0}};
-	assign writing = write_state[3] || write_state[2] || write_state[1];
+	assign mem_writing = write_state[3] || write_state[2] || write_state[1];
 
 //*************************************************************
 //	cache read channel
 //*************************************************************
 	
-    	wire READ_ADDR_OK;
+    wire READ_ADDR_OK;
 	wire READ_DATA_OK;
 	wire READ_DATA_LAST;
 	assign READ_ADDR_OK   = ARVALID && ARREADY;
@@ -397,7 +389,7 @@ module cache2axi#(
 	assign READ_DATA_LAST = RLAST && RREADY;
 	
 	wire rom_read_disable;
-	assign rom_read_disable = (ARADDR == mem_last_write_address)?mem_writing:1'b0;
+	assign rom_read_disable = (ARADDR == ext_last_write_address)?ext_mem_writing:1'b0;
 	reg ARVALID_reg;
 	assign ARVALID = ARVALID_reg && !rom_read_disable;
 	
@@ -416,11 +408,24 @@ module cache2axi#(
 	//response channel
 	reg [1:0]rdata_state;
 	reg [1:0]next_rdata_state;
+	wire [3:0]arlen;
+	reg [1:0] rdata_ptr;
+	wire [1:0]rdata_ptr_next;
+	reg ret_valid_reg;
+	reg ret_last_reg;
+	reg [`DATA_WIDTH - 1:0]ret_data_reg;
 	
-	assign ret_valid = 
-	output rd_rdy,
-	output ret_valid,
+	wire [ID_WIDTH - 1:0]axi_arid;
+	reg [ID_WIDTH - 1:0]axi_rid;
 	
+	assign axi_arid = {master_id, slave_id};
+	assign rdata_ptr_next = rdata_ptr + 1;
+	assign arlen = rd_type;
+	assign ret_valid = ret_valid_reg;
+	assign rd_rdy = raddr_state[0] & rdata_state[0];
+	assign ret_last = ret_last_reg;
+	assign ret_data = ret_data_reg;
+
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			raddr_state <= raddr_state_idle;
@@ -437,7 +442,7 @@ module cache2axi#(
 		case(raddr_state)
 			//receive req
 			raddr_state_idle:begin
-				if (ren && rd_rdy && (next_rdata_state[0]))begin
+				if (rd_req && rd_rdy && (rdata_state[0]))begin
 					next_raddr_state <= raddr_state_req;
 				end
 				else begin
@@ -470,15 +475,15 @@ module cache2axi#(
 			ARID <= 'd0;
 			ARVALID_reg <= 'd0;
 		end
-		else if( ren && rd_rdy && (next_rdata_state[0])) begin
-			ARADDR <= araddr;
+		else if( rd_req && rd_rdy && (rdata_state[0])) begin
+			ARADDR <= rd_addr;
 			ARLEN <= arlen;
 			ARSIZE <= 3'b010;
 			ARBURST <= 2'b01;
-			ARID <= arid;
+			ARID <= axi_arid;
 			ARVALID_reg <= 1'b1;
 		end
-		else if(AXI_ADDR_OK && raddr_state[1])begin
+		else if(READ_ADDR_OK && raddr_state[1])begin
 			ARADDR <= 'd0;
 			ARLEN <= 'd0;
 			ARSIZE <= 'd0;
@@ -495,7 +500,6 @@ module cache2axi#(
 			ARVALID_reg <= ARVALID_reg;
 		end
 	end
-	assign raddr_ok = raddr_state[0];
 	
 	
 	//read data fsm
@@ -511,10 +515,7 @@ module cache2axi#(
 				end
 			end
 			//reqing slave. data channel combines address channel
-			rdata_state_transfer:begin
-				if ( READ_DATA_LAST && READ_ADDR_OK)begin
-					next_rdata_state <= rdata_state_transfer;
-				end
+			rdata_state_transfer:
 				if ( READ_DATA_LAST)begin
 					next_rdata_state <= rdata_state_idle;
 				end
@@ -522,7 +523,6 @@ module cache2axi#(
 				else begin
 					next_rdata_state <= rdata_state_transfer;
 				end
-			end	
 			//never reach
 			default:begin
 				next_rdata_state <= rdata_state_idle;
@@ -530,58 +530,66 @@ module cache2axi#(
 		endcase
 	end
 	
+	
 	always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			RREADY <= 'd0;
-			rid <= 'd0;
-			sram_rdata <= 'd0;
-			rdata_ok  <= 'd0;
+			ret_valid_reg <= 'd0;
+			ret_last_reg <= 'd0;
+			ret_data_reg <= 'd0;
 			rdata_ptr <= 'd0;
 		end
-		else if( rdata_state[0] && READ_ADDR_OK)begin
-			RREADY <= 1'b1;
-			rid <= 'd0;
-			sram_rdata <= 'd0;
-			rdata_ok  <= 'd0;
-			rdata_ptr <= 'd0;
-		end
-		else if( READ_DATA_LAST && rdata_state[1] && READ_ADDR_OK) begin
-			RREADY <= 1'b1;
-			rid <= RID;
-			sram_rdata <= RDATA;
-			rdata_ok  <= 'd1;
-			rdata_ptr <= 'd0;
-		end
-		else if(READ_DATA_LAST && rdata_state[1])begin
-			RREADY <= 1'b0;
-			rid <= RID;
-			sram_rdata <= RDATA;
-			rdata_ok  <= 'd1;
-			rdata_ptr <= 'd0;
-		end
-		else if(READ_DATA_LAST && rdata_state[1])begin
-			RREADY <= 1'b1;
-			rid <= RID;
-			sram_rdata <= RDATA;
-			rdata_ok  <= 'd1;
-			rdata_ptr <= rdata_ptr + 1;
-		end
-		else if(rdata_state[1])begin
-			RREADY <= RREADY;
-			rid <= RID;
-			sram_rdata <= RDATA;
-			rdata_ok  <= 'd0;
-			rdata_ptr <= rdata_ptr;
-		end
-		else begin
-			RREADY <= RREADY;
-			rid <= 'd0;
-			sram_rdata <= 'd0;
-			rdata_ok  <= 'd0;
-			rdata_ptr <= 'd0;
-		end
-	end
-	
+        else begin
+            case(rdata_state)
+                rdata_state_idle:begin
+                    if(READ_ADDR_OK)begin
+                        RREADY <= 1'b1;
+                        ret_valid_reg <= ret_valid_reg;
+                        ret_last_reg <= ret_last_reg;
+                        ret_data_reg <= ret_data_reg;
+                        rdata_ptr <= rdata_ptr;
+                    end
+                    else begin
+                        RREADY <= 1'b0;
+                        ret_valid_reg <= 'd0;
+                        ret_last_reg <= 'd0;
+                        ret_data_reg <= 'd0;
+                        rdata_ptr <= 'd0;
+                    end
+                end
+                rdata_state_transfer:begin
+                	if(READ_DATA_LAST) begin
+                        RREADY <= 1'b0;
+                        ret_valid_reg <= 1'b1;
+                        ret_last_reg <= RLAST;
+                        ret_data_reg <= RDATA;
+                        rdata_ptr <= 'd0;
+                    end
+                    else if(READ_DATA_OK)begin
+                        RREADY <= RREADY;
+                        ret_valid_reg <= 1'b1;
+                        ret_last_reg <= ret_last_reg;
+                        ret_data_reg <= RDATA;
+                        rdata_ptr <= rdata_ptr_next;
+                    end
+                    else begin
+                        RREADY       <= RREADY;
+                        ret_valid_reg <= 1'b0;
+                        ret_last_reg <= ret_last_reg;
+                        ret_data_reg <= ret_data_reg;
+                        rdata_ptr    <= rdata_ptr;
+                    end
+                end
+                default:begin
+                    RREADY        <= RREADY;
+                    ret_valid_reg <= ret_valid_reg;
+                    ret_last_reg  <= ret_last_reg;
+                    ret_data_reg  <= ret_data_reg;
+                    rdata_ptr     <= rdata_ptr;            
+                end
+            endcase
+        end
+    end	
 
 
 endmodule

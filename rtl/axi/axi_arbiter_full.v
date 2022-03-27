@@ -519,7 +519,7 @@ module axi_arbiter_full#(
     assign  s0_ARBURST               = (read_addr_slave_mem)?master_ARBURST:'d0;
     assign  s0_ARLEN                 = (read_addr_slave_mem)?master_ARLEN:'d0;
     assign  s0_ARVALID               = (read_addr_slave_mem)?master_ARVALID:'d0;
-    assign  s0_ARSIZE                = (read_addr_slave_mem)?master_ARLEN:'d0;
+    assign  s0_ARSIZE                = (read_addr_slave_mem)?master_ARSIZE:'d0;
     assign  s0_ARID                  = (read_addr_slave_mem)?master_ARID:'d0;
     
 	//s1 req
@@ -527,7 +527,7 @@ module axi_arbiter_full#(
     assign  s1_ARBURST               = (read_addr_slave_timer)?master_ARBURST:'d0;
     assign  s1_ARLEN                 = (read_addr_slave_timer)?master_ARLEN:'d0;
     assign  s1_ARVALID               = (read_addr_slave_timer)?master_ARVALID:'d0;
-    assign  s1_ARSIZE                = (read_addr_slave_timer)?master_ARLEN:'d0;
+    assign  s1_ARSIZE                = (read_addr_slave_timer)?master_ARSIZE:'d0;
     assign  s1_ARID                  = (read_addr_slave_timer)?master_ARID:'d0;
     
 	//s2 req
@@ -535,7 +535,7 @@ module axi_arbiter_full#(
     assign  s2_ARBURST               = (read_addr_slave_uart)?master_ARBURST:'d0;
     assign  s2_ARLEN                 = (read_addr_slave_uart)?master_ARLEN:'d0;
     assign  s2_ARVALID               = (read_addr_slave_uart)?master_ARVALID:'d0;
-    assign  s2_ARSIZE                = (read_addr_slave_uart)?master_ARLEN:'d0;
+    assign  s2_ARSIZE                = (read_addr_slave_uart)?master_ARSIZE:'d0;
     assign  s2_ARID                  = (read_addr_slave_uart)?master_ARID:'d0;
 	
 	//s3 req
@@ -543,7 +543,7 @@ module axi_arbiter_full#(
     assign  s3_ARBURST               = (read_addr_slave_gpio)?master_ARBURST:'d0;
     assign  s3_ARLEN                 = (read_addr_slave_gpio)?master_ARLEN:'d0;
     assign  s3_ARVALID               = (read_addr_slave_gpio)?master_ARVALID:'d0;
-    assign  s3_ARSIZE                = (read_addr_slave_gpio)?master_ARLEN:'d0;
+    assign  s3_ARSIZE                = (read_addr_slave_gpio)?master_ARSIZE:'d0;
     assign  s3_ARID                  = (read_addr_slave_gpio)?master_ARID:'d0;
 //**************************************************************************************	
 // ******************** read resp channel

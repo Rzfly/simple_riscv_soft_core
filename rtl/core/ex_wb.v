@@ -16,6 +16,7 @@ module ex_wb(
     input [`DATA_WIDTH - 1:0]mem_read_data_i,
     output reg [`DATA_WIDTH - 1:0]  wb_data_wb,
     output write_reg_wb,
+    input mem_type_ex,
     input [3:0]control_flow_ex,
     output mem2reg_wb,
     output forwording_invalid,
@@ -57,6 +58,7 @@ module ex_wb(
     wire [1:0]mem_raddr_index;
     wire [1:0]wb_source;
     reg [3:0]control_flow;
+    reg mem_type;
     reg [`RD_WIDTH - 1:0]rd;
     wire pipe_valid;
 
@@ -68,8 +70,8 @@ module ex_wb(
     
     assign data_ok_resp = 1'b1;
     assign pipe_valid = valid_ex && ready_go_ex ;
-    // not related with flush
-    assign ready_go_wb = ((mem_data_ok || ram_data_valid) && control_flow[1]) && (!hold) && state[2] || (!control_flow[1]) && (!hold) && state[2]; 
+    // not related with flush, mem2reg or write2 reg
+    assign ready_go_wb = ((mem_data_ok || ram_data_valid) && mem_type) && (!hold) && state[2] || (!mem_type) && (!hold) && state[2]; 
     assign valid_wb = state[2];
     assign allow_in_wb = ( state[1] ) || commit_ok;
     
@@ -168,12 +170,14 @@ module ex_wb(
         if ( ~rst_n )
         begin;
             mem_address_testtest <= 0;
+            mem_type <= 0;
             control_flow <= 0;
             rd <= 0;
             ins_func3 <= 0;
         end
         else if ( req_ok )begin
             mem_address_testtest <= mem_address_i;
+            mem_type <= mem_type_ex;
             control_flow <= control_flow_ex;
             rd <= rd_ex;
             ins_func3 <= ins_func3_i;

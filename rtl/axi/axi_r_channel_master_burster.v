@@ -59,9 +59,7 @@ module axi_r_channel_master_burster#(
 	output 					    raddr_ok,
 	output 	reg 			    rdata_ok,
 	output 	reg [3:0] 		    rdata_ptr
-	
-	
-	
+
 );  
 
     wire AXI_ADDR_OK;
@@ -187,7 +185,7 @@ module axi_r_channel_master_burster#(
 				if ( AXI_DATA_LAST && AXI_ADDR_OK)begin
 					next_rdata_state <= rdata_state_transfer;
 				end
-				if ( AXI_DATA_LAST)begin
+				else if ( AXI_DATA_LAST)begin
 					next_rdata_state <= rdata_state_idle;
 				end
 				//if non last or req > 1, transfer

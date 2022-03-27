@@ -116,7 +116,6 @@ module membus2axi #(
 	)srambus2axi_inst(
 		.ACLK(ACLK),
 		.ARESETn(ARESETn),
-		
 		.AWADDR(AWADDR),
 		.AWLEN(AWLEN),
 		.AWSIZE(AWSIZE), //length. less than the width of bus b'010
@@ -173,6 +172,10 @@ module membus2axi #(
     wire [ID_WIDTH - 1:0]mem_rid;
     wire [3:0]rom_rdata_ptr;
 	//=========================================================
+	
+	
+	
+	
 	axi_r_channel_master_burster#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),

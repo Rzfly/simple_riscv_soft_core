@@ -763,6 +763,7 @@ module riscv_core(
         .data_ok_resp(ram_data_resp),
         .mem_address_i(ex2wb_wdata),
         .mem_read_data_i(ram_rdata),
+        .mem_type_ex(ram_req),
         .control_flow_ex(control_flow_ex),
         .wb_data_wb(wb_data_wb),    
         .rd_ex(rd_ex),

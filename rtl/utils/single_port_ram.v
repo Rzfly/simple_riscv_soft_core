@@ -45,11 +45,15 @@ module single_port_ram
     reg [AW-1:0] addr_r;
     wire [MW-1:0] wen;
     wire ren;
-    reg read_data_ok;
-    reg write_data_ok;
     
     assign ren = cs & (~we);
     assign wen = ({MW{cs & we}} & wem);
+
+    always@(posedge clk)begin
+        if(ren)begin
+            addr_r <= addr;
+        end
+    end
 
     genvar i;
     

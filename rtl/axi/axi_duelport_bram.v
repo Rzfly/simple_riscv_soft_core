@@ -157,7 +157,7 @@ module axi_duelport_bram #(
 	
 	
     //======================================================================
-    //鍙傛暟�?�勫�?	
+    //鍙傛暟�?�勫�?	
 	always@(posedge ACLK, negedge ARESETn)begin
 		if(!ARESETn)begin
 			write_start_addr	<= 0;
@@ -208,7 +208,7 @@ module axi_duelport_bram #(
 			3'h0:	awaddr_stop_addr = {28'd0,awlen};
 		    //once two byte
 			3'h1:	awaddr_stop_addr = {27'd0,awlen,1'b0};
-		    //once three byte
+		    //once four byte
 			3'h2:	awaddr_stop_addr = {26'd0,awlen,2'b0};
 			default:awaddr_stop_addr = {28'd0,awlen};
 		endcase
@@ -318,7 +318,7 @@ module axi_duelport_bram #(
 		endcase
 	end
 
-	//assign	araddr_stop = arlen*araddr_step;	//璁＄畻姝ヨ繘娆℃�?
+	//assign	araddr_stop = arlen*araddr_step;	//璁＄畻姝ヨ繘娆℃�?
 	always@(*) begin
 		case(arsize)
 			3'h0:	read_burst_stop_addr = {28'h0,arlen};
