@@ -1,0 +1,71 @@
+
+//for pipe requiring
+
+module syc_fifo#(
+	parameter DATA_WIDTH = 32
+	parameter DEPTH      = 2
+	parameter PTR_LENGTH = 2
+)
+(
+	input clk,
+	input rst_n,
+	//master
+	input [DATA_WIDTH - 1:0]wdata,
+	input w_req,
+	output full
+	//slave
+	output [DATA_WIDTH - 1:0]rdata,
+	input  r_req,
+	output empty
+);
+
+
+	reg [DATA_WIDTH-1:0]saving_regs[DEPTH - 1 :0];
+	reg [PTR_LENGTH-1:0]wptr;
+	reg [PTR_LENGTH-1:0]rptr;
+	
+	
+	wire write_enable;
+	wire read_enable;
+	assign write_enable = w_req && (!full);
+	assign read_enable  = r_req && (!empty);
+	assign rdata = saving_regs[rptr];
+	
+	genvar i;
+	always@(posedge clk)begin
+		if(!rst_n)begin
+			for(i = 0; i < DEPTH;i = i + 1)begin
+				saving_regs[i] <= 0;
+			end
+		end
+		else if(write_enable) begin
+			saving_regs[wptr] <= wdata;
+		end
+	end
+	
+	always@(posedge clk)begin
+		if(!rst_n)begin
+			wptr <= 0;
+		end
+		//increass after write
+		else if(write_enable) begin
+			wptr = wptr + 1;
+		end
+	end
+	
+	
+	always@(posedge clk)begin
+		if(!rst_n)begin
+			rptr <= 0;
+		end
+		else if(read_enable) begin
+			rptr = rptr + 1;
+		end
+	end
+	
+	assign sub_temp =  wptr[PTR_LENGTH-2:0] ^ rptr[PTR_LENGTH-2:0];
+	assign full = (!(|sub_temp)) && (wptr[PTR_LENGTH] ^ rptr[PTR_LENGTH] );
+	assign empty = (!(|sub_temp)) && (!(wptr[PTR_LENGTH] ^ rptr[PTR_LENGTH]));
+	
+	
+endmodule

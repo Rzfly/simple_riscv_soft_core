@@ -220,7 +220,9 @@ module membus2axi_cache #(
         .mem_address(rom_address),
         .mem_wem(4'd0),
         .mem_wdata(32'd0),
-        .mem_rdata(rom_rdata),
+        .mem_rdata(rom_rdata),     
+        .mem_writing(mem_writing),
+        .mem_last_write_address(mem_last_write_address),
         
         .cache_addr_ok(rom_addr_ok),
         .cache_data_ok(rom_data_ok),

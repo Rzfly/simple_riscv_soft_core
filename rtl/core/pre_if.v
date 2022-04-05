@@ -45,31 +45,43 @@ module pre_if(
     output ready_go_if
     );
     
-    parameter state_leap  = 3'b001;
-    parameter state_empty = 3'b010;
-    parameter state_full  = 3'b100;
+    parameter req_leap  = 3'b001;
+    parameter req_empty = 3'b010;
+    parameter req_full  = 3'b100;
+    parameter data_empty = 2'b01;
+    parameter data_full  = 2'b10;
+    
     reg [`BUS_WIDTH - 1:0]pc;
-    reg instruction_valid;
     reg [`DATA_WIDTH - 1:0]instruction;
-    reg [2:0] state;
-    reg [2:0] next_state;
+    reg [2:0] req_state;
+    reg [2:0] next_req_state;
+    reg [1:0] data_state;
+    reg [1:0] next_data_state;
+    
     wire pipe_valid;
     wire req_ok;
     wire commit_ok;
+    wire mem_ack_ok;
+    wire ins_ok;
     assign req_ok    = pipe_valid && allow_in_if;
     assign commit_ok = ready_go_if && allow_in_id;
+    assign mem_ack_ok = mem_data_ok && (!hold) && req_state[2];
+    assign ins_ok     = data_state[1] && (!hold);
     
     assign data_ok_resp = 1'b1;
 //    wire hold_pipe;
 //    assign hold_pipe = !allow_in_id | hold;
     assign pipe_valid = valid_pre && ready_go_pre;
     assign pc_if = pc;
-    assign instruction_if = (instruction_valid)?instruction:rom_rdata;
-    // not related with flush
-    assign ready_go_if = (mem_data_ok || instruction_valid) && (!hold) && state[2];
-    assign valid_if = state[2];
-    assign allow_in_if = ( state[1] ) || commit_ok;
+    assign instruction_if = (data_state[1])?instruction:rom_rdata;
+    assign ready_go_if = mem_ack_ok || ins_ok;
+        
+    assign valid_if = req_state[2] || data_state[1];
+    assign allow_in_if = ( req_state[1] && data_state[0]) || commit_ok;
 
+    
+//    wire [4:0]full_control;
+//    assign full_control = {pipe_valid, cancel, pipe_valid, };
 //    flush  allow hold hold pipe
 //      1      0    0       1
 //      1      0    1       x
@@ -93,51 +105,92 @@ module pre_if(
 
     always@(posedge clk)begin
        if ( !rst_n )begin
-            state <= state_empty;
+            req_state  <= req_empty;
+            data_state <= data_empty;
         end
         else begin
-            state <= next_state;
+            req_state <= next_req_state;
+            data_state <= next_data_state;
         end
     end
     
     always @(*)begin
-       case(state)
+       case(req_state)
             // next stage hold or flush?
             // hold!because readygo = 0
             // next stage get valid = 0 because readygo = 0
-            state_leap:begin
+            req_leap:begin
                 if( mem_data_ok)begin
-                    next_state = state_empty;
+                    next_req_state <= req_empty;
                 end
                 else begin
-                    next_state = state_leap;
+                    next_req_state <= req_leap;
                 end
             end
-            state_empty:begin
-                if( pipe_valid )begin
-                    next_state = state_full;
+            req_empty:begin
+                if( pipe_valid && ( data_state[0] || commit_ok || cancel))begin
+                    next_req_state <= req_full;
                 end
                 else begin
-                    next_state = state_empty;
+                    next_req_state <= req_empty;
                 end
             end
-            state_full:begin
-            //note: if( flush & (hold_pipe) )  then state_full
-                if( cancel && (!commit_ok) && (!instruction_valid))begin
-                    next_state = state_leap;
+            req_full:begin
+            //note: if( flush & (hold_pipe) )  then state_full          
+                if( cancel && (!mem_data_ok) && (data_state[0]))begin
+                    next_req_state <= req_leap;
                 end
-                else if( cancel && (!commit_ok) && (instruction_valid))begin
-                    next_state = state_empty;
+                else if( (!pipe_valid) && cancel && (!mem_data_ok) && (data_state[1]))begin
+                    next_req_state <= req_empty;
                 end
-                else if(!pipe_valid && commit_ok)begin
-                    next_state = state_empty;
+                else if( (!pipe_valid) && cancel && (mem_data_ok))begin
+                    next_req_state <= req_empty;
+                end
+                else if( (!pipe_valid) && mem_data_ok)begin
+                    next_req_state <= req_empty;
                 end
                 else begin
-                    next_state = state_full;
+                    next_req_state <= req_full;
+                end
+//                if( cancel && (!commit_ok) && (!instruction_valid))begin
+//                    next_state = state_leap;
+//                end
+//                else if( cancel && (!commit_ok) && (instruction_valid))begin
+//                    next_state = state_empty;
+//                end
+//                else if(!pipe_valid && commit_ok)begin
+//                    next_state = state_empty;
+//                end
+//                else begin
+//                    next_state = state_full;
+//                end
+            end
+            default:begin
+                next_req_state = req_empty;
+            end
+       endcase
+    end
+    
+    always @(*)begin
+       case(data_state)
+            data_empty:begin
+                if( mem_data_ok && req_state[2] && !commit_ok && !cancel)begin
+                    next_data_state <= data_full;
+                end
+                else begin
+                    next_data_state <= data_empty;
+                end
+            end
+            data_full:begin
+                if( commit_ok || cancel)begin
+                    next_data_state <= data_empty;
+                end
+                else begin
+                    next_data_state <= data_full;
                 end
             end
             default:begin
-                next_state = state_empty;
+                next_data_state = data_empty;
             end
        endcase
     end
@@ -155,17 +208,8 @@ module pre_if(
  
     always@(posedge clk )
     begin
-        if ( !rst_n || cancel )begin
-            instruction_valid <=  1'b0;
-        end
-        //never occur
-        //寄存一次 省略了一个状态         
-        else if( mem_data_ok && ( hold  || !allow_in_id ) )begin
+        if( mem_data_ok && !commit_ok)begin
             instruction <= rom_rdata;
-            instruction_valid <= valid_if;
-        end
-        else if( commit_ok )begin
-            instruction_valid <=  1'b0;
         end
     end
     

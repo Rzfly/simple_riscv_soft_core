@@ -19,6 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+`define MMIO
 `define DRAM
 //`define BRAM
 `define RstDisable 1
@@ -26,8 +27,8 @@
 `define BUS_WIDTH  32
 `define DATA_WIDTH 32
 `define RAM_MASK_WIDTH 4
-`define MEMORY_DEPTH 32768
-`define MEMORY_WIDTH 15
+`define MEMORY_DEPTH 12288 //word
+`define MEMORY_WIDTH 14
 `define JTAG_RESET_FF_LEVELS 5
 `define CPU_CLOCK_HZ 50000000
 //p58 R-type

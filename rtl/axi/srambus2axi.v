@@ -111,7 +111,7 @@ module srambus2axi #(
     assign arlen = 4'd0;
 	
     //=========================================================
-    //写�?�道例化
+    //写�?�道例化
     axi_w_channel_master_buster#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
@@ -159,7 +159,7 @@ module srambus2axi #(
 	);
 	
 		//=========================================================
-		//读�?�道例化
+		//读�?�道例化
 	axi_r_channel_master_burster#(
 		.DATA_WIDTH(DATA_WIDTH),
 		.ADDR_WIDTH(ADDR_WIDTH),
@@ -219,10 +219,14 @@ module srambus2axi #(
 	wire [ADDR_WIDTH -1:0] mem_address_remap     = {{4'h0}, {mem_address[27:0]}};
 	//upper 16KB
 	wire [ADDR_WIDTH -1:0] mem_address_final;
-//	wire [ADDR_WIDTH -1:0] mem_address_add;
-//	assign mem_address_add = mem_address_remap + 32'h00000000;
-//	assign mem_address_final =  (mem_address[31:28] == slave_1 )?mem_address_add:mem_address_remap;
+	`ifdef MMIO
+	wire [ADDR_WIDTH -1:0] mem_address_add;
+	
+	assign mem_address_add = mem_address_remap + 32'h00008000;
+	assign mem_address_final =  (mem_address[31:28] == slave_1 )?mem_address_add:mem_address_remap;
+    `else
 	assign mem_address_final =  mem_address_remap;
+	`endif
 	
 	wire [3:0]slave_id 			= { slave_gpio, slave_gpio|slave_uart, slave_gpio|slave_timer|slave_uart, slave_gpio|slave_timer|slave_mem|slave_uart};
 	wire [ID_WIDTH - 1:0]axi_id = {match_id,slave_id};

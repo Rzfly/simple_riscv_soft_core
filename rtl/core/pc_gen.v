@@ -123,7 +123,7 @@ module pc_gen #(
             jump_addr_temp <= 0; 
             save_jump_valid <= 0;
         end
-        else if(save_jump && jump)begin
+        else if((save_jump || !mem_addr_ok) && jump)begin
             jump_addr_temp <= jump_addr;
             save_jump_valid <= 1;
         end

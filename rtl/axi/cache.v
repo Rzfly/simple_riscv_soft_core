@@ -12,6 +12,8 @@ module cache(
 	output [`DATA_WIDTH - 1 : 0]mem_rdata,
 	output cache_addr_ok,
 	output cache_data_ok,
+	input  mem_writing,
+    input  [`BUS_WIDTH - 1 : 0]mem_last_write_address,
 	//to mem,axi_bus,single channel used
 	output [3:0]slave_id,
 	output rd_req,
@@ -37,7 +39,8 @@ module cache(
 //	wire [23:0]tagV_address;
 	wire valid_cache_row;
 	wire dirty_cache_row;
-//	wire [6:0]true_block_tag_address;
+	wire [4:0]ext_mem_writing_index;
+	wire [22:0]ext_mem_writing_tag_address;
 	//total 9bit
 	wire [4:0]block_index_address;
 	//4 word 16 BYTE
@@ -50,11 +53,15 @@ module cache(
 //	reg [4:0] cache_tagv_32_23bit_way0_address;
 	wire [4:0] cache_tagv_32_23bit_way0_address;
 	wire [23:0]cache_tagv_32_23bit_way0_dout;
+	wire [4:0] cache_tagv_32_23bit_way0_address_2;
+	wire [23:0]cache_tagv_32_23bit_way0_dout_2;
 	wire [23:0]cache_tagv_32_23bit_way0_din;
 	wire cache_tagv_32_23bit_way0_we;
 	
 	//   cache_bank_32_23bit_way1_address;
 //	reg [4:0] cache_tagv_32_23bit_way1_address;
+	wire [4:0] cache_tagv_32_23bit_way1_address_2;
+	wire [23:0]cache_tagv_32_23bit_way1_dout_2;
 	wire [4:0] cache_tagv_32_23bit_way1_address;
 	wire [23:0]cache_tagv_32_23bit_way1_dout;
 	wire [23:0]cache_tagv_32_23bit_way1_din;
@@ -117,6 +124,8 @@ module cache(
 	//control signal
 	wire cache_way0_req_hit;
 	wire cache_way1_req_hit;
+	wire cache_way0_writing_hazard;
+	wire cache_way1_writing_hazard;
 	wire cache_req_hit;
 	reg cache_req_hit_d;
 	reg cache_way0_req_hit_d;
@@ -151,6 +160,8 @@ module cache(
 	wire next_refill_way;
 	wire way0_write_req;
 	wire way1_write_req;
+	wire way0_refill_req;
+	wire way1_refill_req;
 	wire req_handshake_ok;
 	reg uncache_req_d;
 	reg [3:0]refill_index;
@@ -190,10 +201,12 @@ module cache(
 	assign replace_req_ok = wr_req & wr_rdy;	
 	assign refill_req_ok = rd_req & rd_rdy;
 	assign cache_miss = cache_req_not_hit || uncache_req;
-	assign block_tag_address    = {4'd0, mem_address[`BUS_WIDTH - 5: 9]};
-	assign block_index_address  = mem_address[8:4];
-	assign block_bias           = mem_address[3:0];
-    assign slave_id             = slave_id_d;
+	assign block_tag_address     = {4'd0, mem_address[`BUS_WIDTH - 5: 9]};
+	assign block_index_address   = mem_address[8:4];
+	assign ext_mem_writing_index = mem_last_write_address[8:4];
+	assign ext_mem_writing_tag_address = {4'd0, mem_last_write_address[`BUS_WIDTH - 5: 9]};
+	assign block_bias            = mem_address[3:0];
+    assign slave_id              = slave_id_d;
 	assign block_tag_address_d   = mem_address_d[31:9];
 	assign block_index_address_d = mem_address_d[8:4];
 	assign block_bias_d          = mem_address_d[3:0];
@@ -209,6 +222,18 @@ module cache(
 	assign cache_way1_req_hit = (block_tag_address == cache_tagv_32_23bit_way1_dout[22:0]) 
 	   &&  (cache_tagv_32_23bit_way1_dout[23] == 1'b1); //valid
 		   
+	assign cache_tagv_32_23bit_way0_address_2 = ext_mem_writing_index;
+	assign cache_tagv_32_23bit_way1_address_2 = ext_mem_writing_index;
+			   
+    assign cache_way0_writing_hazard = (ext_mem_writing_tag_address == cache_tagv_32_23bit_way0_dout_2[22:0]) 
+	   &&  (cache_tagv_32_23bit_way0_dout_2[23] == 1'b1) && mem_writing; //valid
+	
+	assign cache_way1_writing_hazard = (ext_mem_writing_tag_address == cache_tagv_32_23bit_way1_dout_2[22:0]) 
+	   &&  (cache_tagv_32_23bit_way1_dout_2[23] == 1'b1) && mem_writing; //valid
+		     
+	assign way0_refill_req = ret_valid && !uncache_req_d && !cache_replace_order;
+	assign way1_refill_req = ret_valid && !uncache_req_d && cache_replace_order;
+	
     always@(*)begin
         case(block_bias_d[3:2])
             2'b00:begin
@@ -410,20 +435,26 @@ module cache(
 		endcase
 	end	
 	
-	cache_tagv_32_24bit cache_tagv_32_23bit_way0(
+	cache_tagv_32_24bit_dram cache_tagv_32_23bit_way0(
         .a(cache_tagv_32_23bit_way0_address),      // input wire [4 : 0] a
+        .a_2(cache_tagv_32_23bit_way0_address_2),      // input wire [4 : 0] a
         .d(cache_tagv_32_23bit_way0_din),      // input wire [31 : 0] d
         .clk(clk),  // input wire clk
+        .rst_n(rst_n),
         .we(cache_tagv_32_23bit_way0_we),    // input wire we
-        .spo(cache_tagv_32_23bit_way0_dout)  // output wire [31 : 0] spo
+        .spo(cache_tagv_32_23bit_way0_dout),  // output wire [31 : 0] spo
+	    .spo_2(cache_tagv_32_23bit_way0_dout_2)  // output wire [31 : 0] spo
 	);
 	
-	cache_tagv_32_24bit cache_tagv_32_23bit_way1(
+	cache_tagv_32_24bit_dram cache_tagv_32_23bit_way1(
         .a(cache_tagv_32_23bit_way1_address),      // input wire [4 : 0] a
+        .a_2(cache_tagv_32_23bit_way1_address_2),      // input wire [4 : 0] a
         .d(cache_tagv_32_23bit_way1_din),      // input wire [31 : 0] d
         .clk(clk),  // input wire clk
+        .rst_n(rst_n),
         .we(cache_tagv_32_23bit_way1_we),    // input wire we
-        .spo(cache_tagv_32_23bit_way1_dout)  // output wire [31 : 0] spo
+        .spo(cache_tagv_32_23bit_way1_dout),  // output wire [31 : 0] spo
+	    .spo_2(cache_tagv_32_23bit_way1_dout_2)  // output wire [31 : 0] spo
 	);
 	
 	assign way0_write_req =  cache_way0_req_hit && mem_we;
@@ -537,13 +568,13 @@ module cache(
 	
 	assign direct_index_state = (cache_state[0] | cache_state[1]);
 	
-	assign cache_tagv_32_23bit_way0_address = tagv_address_selection;
-	assign cache_tagv_32_23bit_way0_din = {1'b1,block_tag_address_d};
-    assign cache_tagv_32_23bit_way0_we  = ret_valid && !uncache_req_d && !cache_replace_order;
-	
-	assign cache_tagv_32_23bit_way1_address = tagv_address_selection;
-	assign cache_tagv_32_23bit_way1_din = {1'b1,block_tag_address_d};
-    assign cache_tagv_32_23bit_way1_we  = ret_valid && !uncache_req_d && cache_replace_order;
+	assign cache_tagv_32_23bit_way0_address = (cache_way0_writing_hazard)?ext_mem_writing_index:tagv_address_selection;
+	assign cache_tagv_32_23bit_way0_din = (cache_way0_writing_hazard)?24'd0:{1'b1,block_tag_address};
+    assign cache_tagv_32_23bit_way0_we  = cache_req_not_hit && !next_refill_way || cache_way0_writing_hazard;
+    
+	assign cache_tagv_32_23bit_way1_address = (cache_way1_writing_hazard)?ext_mem_writing_index:tagv_address_selection;
+	assign cache_tagv_32_23bit_way1_din = (cache_way1_writing_hazard)?24'd0:{1'b1,block_tag_address};
+    assign cache_tagv_32_23bit_way1_we  = cache_req_not_hit && next_refill_way || cache_way1_writing_hazard;
 	
 	assign cache_bank_32_word_way0_bank0_address = {27'd0,ram_bank_address_selection};
 	assign cache_bank_32_word_way0_bank1_address = {27'd0,ram_bank_address_selection};
@@ -718,7 +749,7 @@ module cache(
 //	end
 
     always@(*)begin
-        case({way0_write_req, cache_tagv_32_23bit_way0_we})
+        case({way0_write_req, way0_refill_req})
             2'b10:begin
                 way0_bank0_write_req <= write_bank_selection[0];
                 way0_bank1_write_req <= write_bank_selection[1];
@@ -765,7 +796,7 @@ module cache(
     end   
     
     always@(*)begin
-        case({way1_write_req, cache_tagv_32_23bit_way1_we})
+        case({way1_write_req, way1_refill_req})
             2'b10:begin
                 way1_bank0_write_req <= write_bank_selection[0];
                 way1_bank1_write_req <= write_bank_selection[1];

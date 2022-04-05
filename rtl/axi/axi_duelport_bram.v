@@ -487,7 +487,7 @@ module axi_duelport_bram #(
 	);
 
 `else
-	blk_mem_gen_1 blk_mem_gen_1_32KB (
+	blk_mem_gen_1 blk_mem_gen_1_48KB (
 		.clka(ACLK),    // input wire clka
 //		.ena(1'b1),      // input wire ena
 		.wea(wea),      // input wire [3 : 0] wea
