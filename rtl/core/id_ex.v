@@ -5,6 +5,7 @@ module id_ex(
     input clk,
     input rst_n,
     input flush,
+    input cancel,
     input hold,
     input mem_addr_ok,
     output ram_req,
@@ -142,7 +143,10 @@ module id_ex(
         begin;
             valid <= 1'b0;
         end
-        else if( allow_in_ex_commit )begin
+        else if(cancel)begin
+            valid <= 1'b0;
+        end
+        else if( allow_in_ex_commit)begin
             valid <= pipe_valid;
         end
     end

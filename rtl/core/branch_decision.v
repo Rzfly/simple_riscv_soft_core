@@ -11,18 +11,18 @@ module branch_decision(
 	//bne
 	wire temp;
 	//beq
-	assign temp = (ins_fun3 == 3'b000) &&  (!alu_no_zero)
+	assign temp = branch_req && (ins_fun3 == 3'b000) &&  (!alu_no_zero)
 	//bne
-				|| (ins_fun3 == 3'b001) && (alu_no_zero)
+				|| branch_req && (ins_fun3 == 3'b001) && (alu_no_zero)
 	             //blt
-				|| (ins_fun3 == 3'b100) && (alu_res[0])
+				|| branch_req && (ins_fun3 == 3'b100) && (alu_res[0])
 	             //bge
-				|| (ins_fun3 == 3'b101) && (~alu_res[0])
+				|| branch_req && (ins_fun3 == 3'b101) && (~alu_res[0])
 	             //bltu
-				|| (ins_fun3 == 3'b110) && (alu_res[0])
+				|| branch_req && (ins_fun3 == 3'b110) && (alu_res[0])
 	             //bgeu
-				|| (ins_fun3 == 3'b111) && (~alu_res[0]);
+				|| branch_req && (ins_fun3 == 3'b111) && (~alu_res[0]);
 
-	assign branch_res = (temp && branch_req);
+	assign branch_res = temp;
 	
 endmodule

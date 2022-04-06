@@ -143,6 +143,7 @@ module cache(
 	reg cache_replace_order;
 
     reg  [31: 0]mem_address_d;
+    reg  [31: 0]mem_wdata_d;
     reg  [`BUS_WIDTH - 1 : 0]rd_addr_d;
     reg  [`BUS_WIDTH - 1 : 0]wr_addr_d;
     reg  [3:0]rd_type_d;
@@ -164,8 +165,10 @@ module cache(
 	wire way1_refill_req;
 	wire req_handshake_ok;
 	reg uncache_req_d;
+	reg cache_req_d;
+	reg mem_we_d;
 	reg [3:0]refill_index;
-	reg [`RAM_MASK_WIDTH - 1 : 0]wr_wstrb_d;
+	reg [`RAM_MASK_WIDTH - 1 : 0]mem_wem_d;
 	wire direct_index_state;
 	wire [4:0]ram_bank_address_selection;
 	wire [4:0]tagv_address_selection;
@@ -191,16 +194,33 @@ module cache(
         slave_gpio|slave_timer|slave_uart,
         slave_gpio|slave_timer|slave_mem|slave_uart
     };
+    
+    
+	localparam cache_state_idle 	   = 5'b00001;
+	localparam cache_state_lookup      = 5'b00010;
+	localparam cache_state_miss 	   = 5'b00100;
+	localparam cache_state_replace 	   = 5'b01000;
+	localparam cache_state_refill	   = 5'b10000;
 	
-	assign tagv_address_selection = (direct_index_state)?block_index_address:block_index_address_d;	
+	localparam cache_write_idle 	   = 2'b01;
+	localparam cache_write_busy 	   = 2'b10;
+	
+	reg [4:0]cache_state;
+	reg [4:0]next_cache_state;
+	
+	reg [1:0]write_state;
+	reg [1:0]next_write_state;
+
+	
+	assign tagv_address_selection = (cache_req_not_hit && cache_state[1])?block_index_address_d:block_index_address;	
 	assign ram_bank_address_selection = (direct_index_state)?block_index_address:block_index_address_d;	
 	assign valid_cache_row = (cache_way0_req_hit || cache_way1_req_hit);
-   	assign cache_req_hit = req_handshake_ok && valid_cache_row;
-	assign cache_req_not_hit = req_handshake_ok && ( !valid_cache_row );
+   	assign cache_req_hit = cache_req_d && valid_cache_row;
+	assign cache_req_not_hit = cache_req_d && ( !valid_cache_row );
    	assign req_handshake_ok = cache_addr_ok && mem_req;
 	assign replace_req_ok = wr_req & wr_rdy;	
 	assign refill_req_ok = rd_req & rd_rdy;
-	assign cache_miss = cache_req_not_hit || uncache_req;
+	assign cache_miss = cache_req_not_hit || uncache_req_d;
 	assign block_tag_address     = {4'd0, mem_address[`BUS_WIDTH - 5: 9]};
 	assign block_index_address   = mem_address[8:4];
 	assign ext_mem_writing_index = mem_last_write_address[8:4];
@@ -210,16 +230,15 @@ module cache(
 	assign block_tag_address_d   = mem_address_d[31:9];
 	assign block_index_address_d = mem_address_d[8:4];
 	assign block_bias_d          = mem_address_d[3:0];
-	assign cache_req   = mem_req && (slave_mem);
-	assign uncache_req = mem_req && !slave_mem;
-//	assign cache_miss_d = cache_write_miss || cache_read_miss;
+	assign cache_req   = req_handshake_ok && (slave_mem);
+	assign uncache_req = req_handshake_ok && !slave_mem;
 	
 	assign dirty_cache_row = (cache_replace_order)?cache_way1_dirty[block_index_address_d]:cache_way0_dirty[block_index_address_d];
 	
-	assign cache_way0_req_hit = (block_tag_address == cache_tagv_32_23bit_way0_dout[22:0]) 
+	assign cache_way0_req_hit = (block_tag_address_d == cache_tagv_32_23bit_way0_dout[22:0]) 
 	   &&  (cache_tagv_32_23bit_way0_dout[23] == 1'b1); //valid
 	
-	assign cache_way1_req_hit = (block_tag_address == cache_tagv_32_23bit_way1_dout[22:0]) 
+	assign cache_way1_req_hit = (block_tag_address_d == cache_tagv_32_23bit_way1_dout[22:0]) 
 	   &&  (cache_tagv_32_23bit_way1_dout[23] == 1'b1); //valid
 		   
 	assign cache_tagv_32_23bit_way0_address_2 = ext_mem_writing_index;
@@ -237,41 +256,26 @@ module cache(
     always@(*)begin
         case(block_bias_d[3:2])
             2'b00:begin
-                req_hit_rdata <= {32{cache_way0_req_hit_d}} & cache_bank_32_word_way0_bank0_dout 
-                    | {32{cache_way1_req_hit_d}} & cache_bank_32_word_way1_bank0_dout;
+                req_hit_rdata <= {32{cache_way0_req_hit}} & cache_bank_32_word_way0_bank0_dout 
+                    | {32{cache_way1_req_hit}} & cache_bank_32_word_way1_bank0_dout;
             end
             2'b01:begin
-                req_hit_rdata <= {32{cache_way0_req_hit_d}} & cache_bank_32_word_way0_bank1_dout 
-                    | {32{cache_way1_req_hit_d}} & cache_bank_32_word_way1_bank1_dout;
+                req_hit_rdata <= {32{cache_way0_req_hit}} & cache_bank_32_word_way0_bank1_dout 
+                    | {32{cache_way1_req_hit}} & cache_bank_32_word_way1_bank1_dout;
             end
             2'b10:begin
-                req_hit_rdata <= {32{cache_way0_req_hit_d}} & cache_bank_32_word_way0_bank2_dout 
-                    | {32{cache_way1_req_hit_d}} & cache_bank_32_word_way1_bank2_dout;
+                req_hit_rdata <= {32{cache_way0_req_hit}} & cache_bank_32_word_way0_bank2_dout 
+                    | {32{cache_way1_req_hit}} & cache_bank_32_word_way1_bank2_dout;
             end
             2'b11:begin
-                req_hit_rdata <= {32{cache_way0_req_hit_d}} & cache_bank_32_word_way0_bank3_dout 
-                    | {32{cache_way1_req_hit_d}} & cache_bank_32_word_way1_bank3_dout;
+                req_hit_rdata <= {32{cache_way0_req_hit}} & cache_bank_32_word_way0_bank3_dout 
+                    | {32{cache_way1_req_hit}} & cache_bank_32_word_way1_bank3_dout;
             end
             default:begin
                 req_hit_rdata <= 'd0;
             end
         endcase
     end
-
-	localparam cache_state_idle 	   = 5'b00001;
-	localparam cache_state_hit		   = 5'b00010;
-	localparam cache_state_miss 	   = 5'b00100;
-	localparam cache_state_replace 	   = 5'b01000;
-	localparam cache_state_refill	   = 5'b10000;
-	
-	localparam cache_write_idle 	   = 2'b01;
-	localparam cache_write_busy 	   = 2'b10;
-	
-	reg [4:0]cache_state;
-	reg [4:0]next_cache_state;
-	
-	reg [1:0]write_state;
-	reg [1:0]next_write_state;
 
 	always@(posedge clk)begin
 		if(!rst_n)begin
@@ -294,14 +298,12 @@ module cache(
 			rd_type_d <= 'd0;
 		end
 		else if(cache_state[0] | cache_state[1])begin
-			cache_write_miss <= cache_miss && mem_we;
-			cache_read_miss  <= cache_miss && !mem_we;
-//			wr_addr_d <= {block_tag_address_d, block_index_address_d, 4'd0};
-//			rd_addr_d <= {block_tag_address_d, block_index_address_d, 4'd0};
-			wr_addr_d <= {block_tag_address, block_index_address, 4'd0};
-			rd_addr_d <= {block_tag_address, block_index_address, 4'd0};
-			wr_type_d <= (uncache_req)?4'b0000:4'b0011;
-			rd_type_d <= (uncache_req)?4'b0000:4'b0011;
+			cache_write_miss <= cache_miss && mem_we_d;
+			cache_read_miss  <= cache_miss && !mem_we_d;
+			wr_addr_d <= {block_tag_address_d, block_index_address_d, 4'd0};
+			rd_addr_d <= {block_tag_address_d, block_index_address_d, 4'd0};
+			wr_type_d <= (uncache_req_d)?4'b0000:4'b0011;
+			rd_type_d <= (uncache_req_d)?4'b0000:4'b0011;
 		end
 		else begin
 			cache_write_miss <= cache_write_miss;
@@ -352,25 +354,26 @@ module cache(
 	always@(*)begin
 		case(cache_state)
 			cache_state_idle:begin
-				if( cache_req && cache_req_hit)begin
-					next_cache_state <= cache_state_hit;
-				end
-				else if(cache_miss)begin
-					next_cache_state <= cache_state_miss;
+				if( cache_req)begin
+					next_cache_state <= cache_state_lookup;
 				end
 				else begin
 					next_cache_state <= cache_state_idle;
 				end
 			end
-			cache_state_hit:begin
-				if( cache_req && cache_req_hit)begin
-					next_cache_state <= cache_state_hit;
+			cache_state_lookup:begin
+                if(cache_req_hit && cache_req)begin
+					next_cache_state <= cache_state_lookup;
 				end
-				else if(cache_miss)begin
+				else if( cache_req_hit)begin
+					next_cache_state <= cache_state_idle;
+				end
+				else if( cache_req_not_hit)begin
 					next_cache_state <= cache_state_miss;
 				end
 				else begin
-					next_cache_state <= cache_state_idle;
+				    //never occur
+					next_cache_state <= cache_state_lookup;
 				end
 			end
 			cache_state_miss:begin
@@ -457,26 +460,26 @@ module cache(
 	    .spo_2(cache_tagv_32_23bit_way1_dout_2)  // output wire [31 : 0] spo
 	);
 	
-	assign way0_write_req =  cache_way0_req_hit && mem_we;
+	assign way0_write_req =  cache_way0_req_hit && mem_we_d;
 	always@(posedge clk)begin
 	   if(!rst_n)begin
 	       cache_way0_dirty <=  32'd0;
 	   end
 	   else if(way0_write_req)begin
-	       cache_way0_dirty[block_index_address] <= 1'b1;
+	       cache_way0_dirty[block_index_address_d] <= 1'b1;
 	   end
 	   else if(replace_data_ok && !cache_replace_order)begin
 	       cache_way0_dirty[block_index_address_d] <= 1'b0;
 	   end
 	end
 	
-	assign way1_write_req =  cache_way1_req_hit && mem_we;
+	assign way1_write_req =  cache_way1_req_hit && mem_we_d;
     always@(posedge clk)begin
 	   if(!rst_n)begin
 	       cache_way1_dirty <=  32'd0;
 	   end
 	   else if( way1_write_req)begin
-	       cache_way1_dirty[block_index_address] <= 1'b1;
+	       cache_way1_dirty[block_index_address_d] <= 1'b1;
 	   end
 	   else if( replace_data_ok && cache_replace_order)begin
 	       cache_way1_dirty[block_index_address_d] <= 1'b0;
@@ -568,12 +571,13 @@ module cache(
 	
 	assign direct_index_state = (cache_state[0] | cache_state[1]);
 	
+	//hazard lookup write
 	assign cache_tagv_32_23bit_way0_address = (cache_way0_writing_hazard)?ext_mem_writing_index:tagv_address_selection;
-	assign cache_tagv_32_23bit_way0_din = (cache_way0_writing_hazard)?24'd0:{1'b1,block_tag_address};
+	assign cache_tagv_32_23bit_way0_din = (cache_way0_writing_hazard)?24'd0:{1'b1,block_tag_address_d};
     assign cache_tagv_32_23bit_way0_we  = cache_req_not_hit && !next_refill_way || cache_way0_writing_hazard;
     
 	assign cache_tagv_32_23bit_way1_address = (cache_way1_writing_hazard)?ext_mem_writing_index:tagv_address_selection;
-	assign cache_tagv_32_23bit_way1_din = (cache_way1_writing_hazard)?24'd0:{1'b1,block_tag_address};
+	assign cache_tagv_32_23bit_way1_din = (cache_way1_writing_hazard)?24'd0:{1'b1,block_tag_address_d};
     assign cache_tagv_32_23bit_way1_we  = cache_req_not_hit && next_refill_way || cache_way1_writing_hazard;
 	
 	assign cache_bank_32_word_way0_bank0_address = {27'd0,ram_bank_address_selection};
@@ -597,172 +601,27 @@ module cache(
 	assign cache_bank_32_word_way1_bank2_we = way1_bank2_write_req;
 	assign cache_bank_32_word_way1_bank3_we = way1_bank3_write_req;
 	
-	wire [3:0]write_bank_selection;
 	wire [3:0]write_bank_selection_d;
-	assign write_bank_selection[0] = (block_bias[3:2] == 2'b00)?1'b1:1'b0;
-	assign write_bank_selection[1] = (block_bias[3:2] == 2'b01)?1'b1:1'b0;
-	assign write_bank_selection[2] = (block_bias[3:2] == 2'b10)?1'b1:1'b0;
-	assign write_bank_selection[3] = (block_bias[3:2] == 2'b11)?1'b1:1'b0;
     assign write_bank_selection_d[0] = (block_bias_d[3:2] == 2'b00)?1'b1:1'b0;
 	assign write_bank_selection_d[1] = (block_bias_d[3:2] == 2'b01)?1'b1:1'b0;
 	assign write_bank_selection_d[2] = (block_bias_d[3:2] == 2'b10)?1'b1:1'b0;
 	assign write_bank_selection_d[3] = (block_bias_d[3:2] == 2'b11)?1'b1:1'b0;
 
-//	always@(posedge clk)begin
-//	   if(!rst_n)begin
-//            way0_bank0_write_req <= 1'b0;
-//            way0_bank1_write_req <= 1'b0;
-//            way0_bank2_write_req <= 1'b0;
-//            way0_bank3_write_req <= 1'b0;
-//            cache_bank_32_word_way0_bank0_din <= 'd0;
-//            cache_bank_32_word_way0_bank1_din <= 'd0;
-//            cache_bank_32_word_way0_bank2_din <= 'd0;
-//            cache_bank_32_word_way0_bank3_din <= 'd0;
-//            cache_bank_32_word_way0_bank0_wem <= 'd0;
-//            cache_bank_32_word_way0_bank1_wem <= 'd0;
-//            cache_bank_32_word_way0_bank2_wem <= 'd0;
-//            cache_bank_32_word_way0_bank3_wem <= 'd0;
-////            cache_tagv_32_23bit_way0_address  <= 'd0;
-////            cache_tagv_32_23bit_way0_din      <= 'd0;
-////            cache_tagv_32_23bit_way0_we       <= 1'b0;
-//	   end
-//	   else if(way0_write_req)begin
-//            way0_bank0_write_req <= write_bank_selection[0];
-//            way0_bank1_write_req <= write_bank_selection[1];
-//            way0_bank2_write_req <= write_bank_selection[2];
-//            way0_bank3_write_req <= write_bank_selection[3];
-//            cache_bank_32_word_way0_bank0_wem <= mem_wem;
-//            cache_bank_32_word_way0_bank1_wem <= mem_wem;
-//            cache_bank_32_word_way0_bank2_wem <= mem_wem;
-//            cache_bank_32_word_way0_bank3_wem <= mem_wem;
-//            cache_bank_32_word_way0_bank0_din <= mem_wdata;
-//            cache_bank_32_word_way0_bank1_din <= mem_wdata;
-//            cache_bank_32_word_way0_bank2_din <= mem_wdata;
-//            cache_bank_32_word_way0_bank3_din <= mem_wdata;
-////            cache_tagv_32_23bit_way0_address  <= block_index_address_d;
-////            cache_tagv_32_23bit_way0_din <= {1'b1,block_tag_address};
-////            cache_tagv_32_23bit_way0_we <= 1'b1;
-//	   end
-//	   else if(cache_tagv_32_23bit_way0_we)begin
-//            way0_bank0_write_req <= refill_index[0] ;
-//            way0_bank1_write_req <= refill_index[1] ;
-//            way0_bank2_write_req <= refill_index[2] ;
-//            way0_bank3_write_req <= refill_index[3] ;
-//            cache_bank_32_word_way0_bank0_wem <= 4'b1111;
-//            cache_bank_32_word_way0_bank1_wem <= 4'b1111;
-//            cache_bank_32_word_way0_bank2_wem <= 4'b1111;
-//            cache_bank_32_word_way0_bank3_wem <= 4'b1111;
-//            cache_bank_32_word_way0_bank0_din <= ret_data;
-//            cache_bank_32_word_way0_bank1_din <= ret_data;
-//            cache_bank_32_word_way0_bank2_din <= ret_data;
-//            cache_bank_32_word_way0_bank3_din <= ret_data;
-////            cache_tagv_32_23bit_way0_address  <= block_index_address_d;
-////            cache_tagv_32_23bit_way0_din <= {1'b1,block_tag_address_d};
-////            cache_tagv_32_23bit_way0_we <= 1'b1;
-//	   end
-//	   else begin
-//            way0_bank0_write_req <= 1'b0;
-//            way0_bank1_write_req <= 1'b0;
-//            way0_bank2_write_req <= 1'b0;
-//            way0_bank3_write_req <= 1'b0;
-//            cache_bank_32_word_way0_bank0_wem <= 'd0;
-//            cache_bank_32_word_way0_bank1_wem <= 'd0;
-//            cache_bank_32_word_way0_bank2_wem <= 'd0;
-//            cache_bank_32_word_way0_bank3_wem <= 'd0;
-//	        cache_bank_32_word_way0_bank0_din <= cache_bank_32_word_way0_bank0_din;
-//            cache_bank_32_word_way0_bank1_din <= cache_bank_32_word_way0_bank1_din;
-//            cache_bank_32_word_way0_bank2_din <= cache_bank_32_word_way0_bank2_din;
-//            cache_bank_32_word_way0_bank3_din <= cache_bank_32_word_way0_bank3_din;           
-////            cache_tagv_32_23bit_way0_address  <= cache_tagv_32_23bit_way0_address;
-////            cache_tagv_32_23bit_way0_din <= cache_tagv_32_23bit_way0_din;
-////            cache_tagv_32_23bit_way0_we <= 1'b0;
-//	   end
-//	end
-	
-//	always@(posedge clk)begin
-//	   if(!rst_n)begin
-//            way1_bank0_write_req <= 1'b0;
-//            way1_bank1_write_req <= 1'b0;
-//            way1_bank2_write_req <= 1'b0;
-//            way1_bank3_write_req <= 1'b0;
-//            cache_bank_32_word_way1_bank0_wem <= 'd0;
-//            cache_bank_32_word_way1_bank1_wem <= 'd0;
-//            cache_bank_32_word_way1_bank2_wem <= 'd0;
-//            cache_bank_32_word_way1_bank3_wem <= 'd0;
-//            cache_bank_32_word_way1_bank0_din <= 'd0;
-//            cache_bank_32_word_way1_bank1_din <= 'd0;
-//            cache_bank_32_word_way1_bank2_din <= 'd0;
-//            cache_bank_32_word_way1_bank3_din <= 'd0;
-////            cache_tagv_32_23bit_way1_address  <= 'd0;
-////            cache_tagv_32_23bit_way1_din  <= 'd0;
-////            cache_tagv_32_23bit_way1_we <= 1'b0;
-//	   end
-//	   else if(way1_write_req)begin
-//            way1_bank0_write_req <= write_bank_selection[0];
-//            way1_bank1_write_req <= write_bank_selection[1];
-//            way1_bank2_write_req <= write_bank_selection[2];
-//            way1_bank3_write_req <= write_bank_selection[3];
-//            cache_bank_32_word_way1_bank0_din <= mem_wdata;
-//            cache_bank_32_word_way1_bank1_din <= mem_wdata;
-//            cache_bank_32_word_way1_bank2_din <= mem_wdata;
-//            cache_bank_32_word_way1_bank3_din <= mem_wdata;
-//            cache_bank_32_word_way1_bank0_wem <= mem_wem;
-//            cache_bank_32_word_way1_bank1_wem <= mem_wem;
-//            cache_bank_32_word_way1_bank2_wem <= mem_wem;
-//            cache_bank_32_word_way1_bank3_wem <= mem_wem;
-////            cache_tagv_32_23bit_way1_address  <= block_index_address_d;
-//	   end
-//	   else if(cache_tagv_32_23bit_way1_we)begin
-//            way1_bank0_write_req <= refill_index[0] ;
-//            way1_bank1_write_req <= refill_index[1] ;
-//            way1_bank2_write_req <= refill_index[2] ;
-//            way1_bank3_write_req <= refill_index[3] ;
-//            cache_bank_32_word_way1_bank0_din <= ret_data;
-//            cache_bank_32_word_way1_bank1_din <= ret_data;
-//            cache_bank_32_word_way1_bank2_din <= ret_data;
-//            cache_bank_32_word_way1_bank3_din <= ret_data;
-//            cache_bank_32_word_way1_bank0_wem <= 4'b1111;
-//            cache_bank_32_word_way1_bank1_wem <= 4'b1111;
-//            cache_bank_32_word_way1_bank2_wem <= 4'b1111;
-//            cache_bank_32_word_way1_bank3_wem <= 4'b1111;
-////            cache_tagv_32_23bit_way1_address  <= block_index_address_d;
-////            cache_tagv_32_23bit_way1_din <= {1'b1,block_tag_address_d};
-////            cache_tagv_32_23bit_way1_we <= 1'b1;
-//	   end
-//	   else begin
-//            way1_bank0_write_req <= 1'b0;
-//            way1_bank1_write_req <= 1'b0;
-//            way1_bank2_write_req <= 1'b0;
-//            way1_bank3_write_req <= 1'b0;
-//	        cache_bank_32_word_way1_bank0_din <= cache_bank_32_word_way0_bank0_din;
-//            cache_bank_32_word_way1_bank1_din <= cache_bank_32_word_way0_bank1_din;
-//            cache_bank_32_word_way1_bank2_din <= cache_bank_32_word_way0_bank2_din;
-//            cache_bank_32_word_way1_bank3_din <= cache_bank_32_word_way0_bank3_din;
-//            cache_bank_32_word_way1_bank0_wem <= 'd0;
-//            cache_bank_32_word_way1_bank1_wem <= 'd0;
-//            cache_bank_32_word_way1_bank2_wem <= 'd0;
-//            cache_bank_32_word_way1_bank3_wem <= 'd0;
-////            cache_tagv_32_23bit_way1_address  <= cache_tagv_32_23bit_way1_address;
-////            cache_tagv_32_23bit_way1_din  <= cache_tagv_32_23bit_way1_din;
-////            cache_tagv_32_23bit_way1_we   <= 1'b0;
-//        end
-//	end
-
     always@(*)begin
         case({way0_write_req, way0_refill_req})
             2'b10:begin
-                way0_bank0_write_req <= write_bank_selection[0];
-                way0_bank1_write_req <= write_bank_selection[1];
-                way0_bank2_write_req <= write_bank_selection[2];
-                way0_bank3_write_req <= write_bank_selection[3];
-                cache_bank_32_word_way0_bank0_wem <= mem_wem;
-                cache_bank_32_word_way0_bank1_wem <= mem_wem;
-                cache_bank_32_word_way0_bank2_wem <= mem_wem;
-                cache_bank_32_word_way0_bank3_wem <= mem_wem;
-                cache_bank_32_word_way0_bank0_din <= mem_wdata;
-                cache_bank_32_word_way0_bank1_din <= mem_wdata;
-                cache_bank_32_word_way0_bank2_din <= mem_wdata;
-                cache_bank_32_word_way0_bank3_din <= mem_wdata;
+                way0_bank0_write_req <= write_bank_selection_d[0];
+                way0_bank1_write_req <= write_bank_selection_d[1];
+                way0_bank2_write_req <= write_bank_selection_d[2];
+                way0_bank3_write_req <= write_bank_selection_d[3];
+                cache_bank_32_word_way0_bank0_wem <= mem_wem_d;
+                cache_bank_32_word_way0_bank1_wem <= mem_wem_d;
+                cache_bank_32_word_way0_bank2_wem <= mem_wem_d;
+                cache_bank_32_word_way0_bank3_wem <= mem_wem_d;
+                cache_bank_32_word_way0_bank0_din <= mem_wdata_d;
+                cache_bank_32_word_way0_bank1_din <= mem_wdata_d;
+                cache_bank_32_word_way0_bank2_din <= mem_wdata_d;
+                cache_bank_32_word_way0_bank3_din <= mem_wdata_d;
             end
             2'b01:begin
                 way0_bank0_write_req <= refill_index[0] ;
@@ -798,18 +657,18 @@ module cache(
     always@(*)begin
         case({way1_write_req, way1_refill_req})
             2'b10:begin
-                way1_bank0_write_req <= write_bank_selection[0];
-                way1_bank1_write_req <= write_bank_selection[1];
-                way1_bank2_write_req <= write_bank_selection[2];
-                way1_bank3_write_req <= write_bank_selection[3];
-                cache_bank_32_word_way1_bank0_din <= mem_wdata;
-                cache_bank_32_word_way1_bank1_din <= mem_wdata;
-                cache_bank_32_word_way1_bank2_din <= mem_wdata;
-                cache_bank_32_word_way1_bank3_din <= mem_wdata;
-                cache_bank_32_word_way1_bank0_wem <= mem_wem;
-                cache_bank_32_word_way1_bank1_wem <= mem_wem;
-                cache_bank_32_word_way1_bank2_wem <= mem_wem;
-                cache_bank_32_word_way1_bank3_wem <= mem_wem;
+                way1_bank0_write_req <= write_bank_selection_d[0];
+                way1_bank1_write_req <= write_bank_selection_d[1];
+                way1_bank2_write_req <= write_bank_selection_d[2];
+                way1_bank3_write_req <= write_bank_selection_d[3];
+                cache_bank_32_word_way1_bank0_wem <= mem_wem_d;
+                cache_bank_32_word_way1_bank1_wem <= mem_wem_d;
+                cache_bank_32_word_way1_bank2_wem <= mem_wem_d;
+                cache_bank_32_word_way1_bank3_wem <= mem_wem_d;
+                cache_bank_32_word_way1_bank0_din <= mem_wdata_d;
+                cache_bank_32_word_way1_bank1_din <= mem_wdata_d;
+                cache_bank_32_word_way1_bank2_din <= mem_wdata_d;
+                cache_bank_32_word_way1_bank3_din <= mem_wdata_d;
             end
             2'b01:begin
                 way1_bank0_write_req <= refill_index[0] ;
@@ -860,59 +719,66 @@ module cache(
 	always@(posedge clk) begin
         if(!rst_n)begin
             uncache_req_d <= 1'b0;
+            cache_req_d   <= 1'b0;
         end
-        else if((cache_state[0] || cache_state[1]) && uncache_req)begin
-            uncache_req_d <= 1'b1;
+        else if(req_handshake_ok)begin
+            uncache_req_d <= uncache_req;
+            cache_req_d   <= cache_req;
         end
-        else if(replace_req_ok || refill_data_ok)begin
+        else if(cache_data_ok)begin
             uncache_req_d <= 1'b0;
+            cache_req_d   <= 1'b0;
         end
         else begin
             uncache_req_d <= uncache_req_d;
+            cache_req_d   <= cache_req_d;
         end
 	end
+	
+    always@(posedge clk) begin
+        if(!rst_n)begin
+            cache_req_d   <= 1'b0;
+        end
+        else if(req_handshake_ok)begin
+            cache_req_d   <= cache_req;
+        end
+        else begin
+            cache_req_d   <= 1'b0;
+        end
+	end
+	
 		
 	always@(posedge clk) begin
         if(!rst_n)begin
             mem_address_d <=  'd0;
-	        wr_wstrb_d    <=  'd0;
-	        slave_id_d    <=  'd0;  
+	        mem_wem_d     <=  'd0;
+	        slave_id_d    <=  'd0;
+	        mem_we_d      <=  'd0;
+	        mem_wdata_d   <=  'd0;
         end
         else if(req_handshake_ok)begin
             mem_address_d <= {4'd0,mem_address[27:0]};
-	        wr_wstrb_d    <= mem_wem;
+	        mem_wem_d     <= mem_wem;
 	        slave_id_d    <= slave_id_decode; 
+	        mem_we_d      <= mem_we;
+	        mem_wdata_d   <= mem_wdata;
+        end
+        else if(cache_state[0] || cache_state[1])begin
+            mem_address_d <= mem_address_d;
+	        mem_wem_d     <= mem_wem_d;
+	        slave_id_d    <= slave_id_d;
+	        mem_we_d      <= 'd0;
+	        mem_wdata_d   <= mem_wdata_d;
         end
         else begin
             mem_address_d <= mem_address_d;
-            wr_wstrb_d    <= mem_wem;
+            mem_wem_d     <= mem_wem;
 	        slave_id_d    <= slave_id_d; 
+	        mem_we_d      <= mem_we_d;
+	        mem_wdata_d   <= mem_wdata_d;
         end
 	end
-	assign wr_wstrb = wr_wstrb_d;
-	
-	always@(posedge clk) begin
-        if(!rst_n)begin
-            cache_req_hit_d         <= 'd0;     
-            cache_way0_req_hit_d    <= 'd0;    
-            cache_way1_req_hit_d    <= 'd0;
-        end
-        else if(cache_req_hit)begin
-            cache_req_hit_d <= 1'b1;  
-            cache_way0_req_hit_d    <= cache_way0_req_hit;  
-            cache_way1_req_hit_d    <= cache_way1_req_hit;
-        end
-        else if(cache_req_not_hit || !cache_req)begin
-            cache_req_hit_d <= 1'b0;
-            cache_way0_req_hit_d    <= 1'b0;  
-            cache_way1_req_hit_d    <= 1'b0;
-        end
-        else begin
-            cache_req_hit_d         <= cache_req_hit_d;
-            cache_way0_req_hit_d    <= cache_way0_req_hit_d;  
-            cache_way1_req_hit_d    <= cache_way1_req_hit_d;
-        end
-	end
+	assign wr_wstrb = mem_wem_d;
 	
 	always@(posedge clk)begin
 	   if(!rst_n)begin
@@ -923,9 +789,9 @@ module cache(
 	   end
 	end
 	
-	assign cache_addr_ok = (cache_state[0] || cache_state[1]);
-	assign cache_data_ok = (cache_req_hit_d) || (ret_valid && (write_bank_selection_d == refill_index));
-	assign mem_rdata     = ({32{cache_req_hit_d}} & req_hit_rdata) | ({32{ret_valid}} & ret_data);
+	assign cache_addr_ok = (cache_state[0] || (cache_state[1] && cache_req_hit));
+	assign cache_data_ok = (cache_state[1] && cache_req_hit) || (ret_valid && (write_bank_selection_d == refill_index));
+	assign mem_rdata     = ({32{cache_state[1] && cache_req_hit}} & req_hit_rdata) | ({32{ret_valid}} & ret_data);
 	
 	lfsr lfsr_inst(
 	   .clk(clk),

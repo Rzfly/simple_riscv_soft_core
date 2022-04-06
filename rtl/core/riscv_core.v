@@ -501,6 +501,7 @@ module riscv_core(
         .clk(clk),
         .rst_n(rst_n),
         .flush(flush_ex),
+        .cancel(cancel_ex),
         .hold(hold_ex),
         .mem_addr_ok(ram_addr_ok),
         .ram_req(ram_req),
