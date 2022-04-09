@@ -5,7 +5,7 @@
 
 `define TEST_PROG  1
 //`define TEST_JTAG  1
-`define OUTPUT  "C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\compliance_test\\signature.output"
+`define OUTPUT  "/home/rzfly/gitspace/riscv_core/sim/compliance_test/signature.output"
 
 // testbench module
 module axi_compliance_test_tb;
@@ -24,10 +24,9 @@ module axi_compliance_test_tb;
     assign x26 = axi_soc_top_inst.riscv_core_inst.regfile_inst.rf[26];
     assign x27 = axi_soc_top_inst.riscv_core_inst.regfile_inst.rf[27];
 
-;
-    wire[31:0] ex_end_flag = axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r[4];
-    wire[31:0] begin_signature = axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r[2];
-    wire[31:0] end_signature = axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r[3];
+    wire[31:0] ex_end_flag = axi_soc_top_inst.axi_duelport_bram_inst.sirv_duelport_ram_inst.mem_r[4 + 8192];
+    wire[31:0] begin_signature = axi_soc_top_inst.axi_duelport_bram_inst.sirv_duelport_ram_inst.mem_r[2 + 8192];
+    wire[31:0] end_signature = axi_soc_top_inst.axi_duelport_bram_inst.sirv_duelport_ram_inst.mem_r[3 + 8192];
 
     integer r;
     integer fd;
@@ -91,10 +90,12 @@ module axi_compliance_test_tb;
 */
 
         wait(ex_end_flag == 32'h1);  // wait sim end
-
-        fd = $fopen(`OUTPUT);   // OUTPUT的�?�在命令行里定义
+        for (r = 0; r < 32; r = r + 1)begin
+                $display("x%2d = 0x%x", r, axi_soc_top_inst.riscv_core_inst.regfile_inst.rf[r]);
+        end
+        fd = $fopen(`OUTPUT);   // OUTPUT的�?�在命令行里定义
         for (r = begin_signature; r < end_signature; r = r + 4) begin
-            $fdisplay(fd, "%x", axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r[r[31:2]]);
+            $fdisplay(fd, "%x", axi_soc_top_inst.axi_duelport_bram_inst.sirv_duelport_ram_inst.mem_r[r[31:2]]);
         end
         $fclose(fd);
 
@@ -499,13 +500,14 @@ module axi_compliance_test_tb;
     initial begin
         #600000
         $display("Time Out.");
+
         $finish;
     end
 	
     // read mem data
     initial begin
-        #20
-        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\compliance_test\\inst.data", axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r);
+     #20  $readmemh ("/home/rzfly/gitspace/riscv_core/sim/compliance_test/inst.data",  axi_soc_top_inst.axi_duelport_bram_inst.sirv_duelport_ram_inst.mem_r);  
+//#20       $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\compliance_test\\inst.data", axi_soc_top_inst.AXI_DUELPORTSRAM_inst.sirv_duelport_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\tinyriscv\\sim\\inst.data", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\inst.data", soc_top_inst.sirv_duelport_ram_inst.mem_r);
 //        $readmemh ("C:\\Users\\newrz\\Desktop\\riscv\\simple_riscv_soft_core\\sim\\instdata3.txt", soc_top_inst.srambus_inst.sirv_sim_ram_inst.mem_r);

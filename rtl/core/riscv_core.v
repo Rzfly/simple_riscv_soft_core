@@ -31,6 +31,7 @@ module riscv_core(
     output rom_data_resp,
     input rom_data_ok,
     input [`DATA_WIDTH - 1: 0]rom_rdata,
+    input  mem_rdata_br_type,
     output [`BUS_WIDTH - 1:0]ram_address,
     input ram_addr_ok,
     input ram_data_ok,
@@ -53,9 +54,8 @@ module riscv_core(
     
     //instruction fetch signals
     wire [`BUS_WIDTH - 1:0]pc_if;
-    wire [`BUS_WIDTH - 1:0]next_pc;
-//    wire [`BUS_WIDTH - 1:0]pc_if_id;
-//    wire [`DATA_WIDTH - 1:0]instruction_if;
+    wire [`BUS_WIDTH - 1:0]pc_pre;
+    wire [`BUS_WIDTH - 1:0]pc_bp;
     wire [`BUS_WIDTH - 1:0]jump_addr;
     wire [`DATA_WIDTH - 1:0] instruction_if; 
     wire allow_in_if;
@@ -144,6 +144,8 @@ module riscv_core(
     wire fence_type_ex;
     wire [3:0]control_flow_ex;
     wire [`BUS_WIDTH - 1:0]pc_branch_addr_ex;
+    wire [`BUS_WIDTH - 1:0]pc_jump_addr_ex;
+    wire [`BUS_WIDTH - 1:0]pc_ex_plus4;
     wire [`DATA_WIDTH - 1:0] imm_ex;
     wire [`CsrMemAddrWIDTH - 1:0]csr_addr_ex;
     wire [`DATA_WIDTH - 1:0]csr_read_data_ex;
@@ -251,11 +253,16 @@ module riscv_core(
     wire cancel_id;
     wire cancel_ex;
     wire pc_jump;
+    wire bp_taken_pre;
+    wire bp_taken_if;
+    wire bp_taken_id;
+    wire bp_taken_ex;
+    wire bp_wrong = (bp_taken_ex ^ branch_res) & branch_ex;
 //    wire jump_fail;
     assign jump_req = pc_jump;
     assign  pc_jump = jal_ex || jalr_ex || branch_res || clint_int_assert || fence_jump;
 
-    assign  jump_addr = (clint_int_assert)?clint_int_pc:pc_branch_addr_ex;
+    assign  jump_addr = (clint_int_assert)?clint_int_pc:pc_jump_addr_ex;
 
     assign  cancel_if = pc_jump;
     assign  cancel_id = pc_jump;
@@ -268,12 +275,36 @@ module riscv_core(
     assign  hold_if = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
     assign  hold_id = jtag_halt_flag_i || clint_hold_flag || stall_pipe;
     assign  hold_ex = 1'b0;    
-//    assign  hold_ex = jtag_halt_flag_i || jump_fail;    
-     assign hold_wb = 1'b0;
+    assign  hold_wb = 1'b0;
+    assign  flush_wb = 1'b0;
     
-     assign flush_wb = 1'b0;
     
-    pc_gen pc_gen_inst(
+    wire   pre_taken_pre;
+    wire   [`BUS_WIDTH - 1:0] pre_taken_target_pre;
+    wire   [`BUS_WIDTH - 1:0] pre_taken_target_if;
+    wire   [`BUS_WIDTH - 1:0] pre_taken_target_id;
+    wire   [`BUS_WIDTH - 1:0] pre_taken_target_ex;    
+    wire   early_bp_wrong_if;
+    wire   branch_seq;
+    wire   branch_cal;
+    wire   update_btb;
+    assign bp_taken_pre = pre_taken_pre;
+//    wire   [`BUS_WIDTH - 1:0] pc_add;
+    
+    bpu bpu_inst(
+        .clk(clk),
+        .rst_n(rst_n),
+        .pre_taken_o(pre_taken_pre),
+        .pre_target_o(pre_taken_target_pre),
+        .pc_i(pc_bp),
+        .set_i(update_btb),
+//        .set_i(branch_res),
+        .set_pc_i(pc_ex),
+        .set_taken_i(branch_cal),
+        .set_target_i(pc_branch_addr_ex)
+   );
+   
+    prefetch prefetch_inst(    
         .clk(clk),
         .rst_n(rst_n),
         .jump_addr(jump_addr),
@@ -283,26 +314,36 @@ module riscv_core(
         .clint_hold_flag(clint_hold_flag),
         .mem_addr_ok(rom_addr_ok),
         .rom_req(rom_req),
+        .pc_pre(pc_pre),
+        .pc_bp(pc_bp),
+        .rom_address(rom_address),
         .pc_if(pc_if),
-        .next_pc(next_pc),
+        .early_bp_wrong_if(early_bp_wrong_if),
+        .pre_taken_i(pre_taken_pre),
+        .pre_taken_target_i(pre_taken_target_pre),
         .allow_in_if(allow_in_if),
         .ready_go_pre(ready_go_pre),
         .valid_pre(valid_pre)
     );
 
-    assign rom_address = next_pc;
-    
     pre_if pre_if_inst(
         .clk(clk),
         .rst_n(rst_n),
         .hold(hold_if),
+        .flush(cancel_if),
         .cancel(cancel_if),
         .mem_data_ok(rom_data_ok),
         .data_ok_resp(rom_data_resp),
-        .next_pc(next_pc),
+        .pc_pre(pc_pre),
         .pc_if(pc_if),
         .rom_rdata(rom_rdata),
+        .rdata_brtype(mem_rdata_br_type),
         .instruction_if(instruction_if),
+        .pre_taken_target_pre(pre_taken_target_pre),
+        .pre_taken_target_if(pre_taken_target_if),
+        .bp_taken_pre(bp_taken_pre),
+        .bp_taken_if(bp_taken_if),
+        .early_bp_wrong_if(early_bp_wrong_if),
         .allow_in_if(allow_in_if),
         .valid_pre(valid_pre),
         .ready_go_pre(ready_go_pre),
@@ -321,6 +362,10 @@ module riscv_core(
         .pc_id(pc_id),
         .instruction_if(instruction_if),
         .instruction_id(instruction_id),
+        .bp_taken_if(bp_taken_if),
+        .bp_taken_id(bp_taken_id),
+        .pre_taken_target_if(pre_taken_target_if),
+        .pre_taken_target_id(pre_taken_target_id),
         .allow_in_id(allow_in_id),
         .valid_if(valid_if),
         .ready_go_if(ready_go_if),
@@ -513,6 +558,10 @@ module riscv_core(
         .imm_ex(imm_ex),
         .instruction_id(instruction_id),
         .instruction_ex(instruction_ex),
+        .bp_taken_id(bp_taken_id),
+        .bp_taken_ex(bp_taken_ex),
+        .pre_taken_target_id(pre_taken_target_id),
+        .pre_taken_target_ex(pre_taken_target_ex),
         .csr_write_data_id(csr_write_data_id),
         .csr_write_data_ex(csr_write_data_ex),
         .csr_read_data_id(csr_read_data_id_forward),
@@ -598,23 +647,21 @@ module riscv_core(
 
     branch_decision branch_decision_inst(
         .branch_req(branch_ex),
+        .jal_ex(jal_ex),
+        .jalr_ex(jalr_ex),
+        .clint_int_assert(clint_int_assert),
+        .fence_jump(fence_jump),
+        .pre_taken_target_ex(pre_taken_target_ex),
+        .pc_branch_addr_ex(pc_branch_addr_ex),
+        .bp_taken(bp_taken_ex),
         .ins_fun3(ins_func3_ex),
         .alu_res(alu_output_ex),
         .alu_no_zero(alu_no_zero),
+        .update_btb(update_btb),
+        .branch_cal(branch_cal),
+        .branch_seq(branch_seq),
         .branch_res(branch_res)
     );
-    
-//    forwarding forwarding_unit(
-//        .rs1_ex(rs1_ex),
-//        .rs2_ex(rs2_ex),
-//        .rs1_data_ex(rs1_data_ex),
-//        .rs2_data_ex(rs2_data_ex),
-//        .rd_wb(rd_wb),
-//        .wb_data_wb(wb_data_wb),
-//        .write_reg_wb(write_reg_wb),
-//        .rs1_data_forward(rs1_data_forward),
-//        .rs2_data_forward(rs2_data_forward)
-//    );
     
     //when hazard, stall. stall = flush & refetch(hold)
     //pc hold,id hold,ex becomes nop intead of other instuctions
@@ -642,6 +689,8 @@ module riscv_core(
     assign branch_adder_in2 = imm_ex;
     
     assign pc_branch_addr_ex = branch_adder_in1 +  branch_adder_in2;
+    assign pc_jump_addr_ex   = (branch_seq)?pc_ex_plus4:pc_branch_addr_ex;
+    assign pc_ex_plus4       = pc_ex + 32'd4;
     //no fowarding unit
     
     assign alu_input_num1 =(auipc_ex)? pc_ex : rs1_data_ex;

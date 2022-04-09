@@ -26,13 +26,20 @@ module pre_if(
     input rst_n,
     input hold,//ready or not
     //if flush,not valid
+    input flush,//valid or not
     input cancel,//valid or not
     input mem_data_ok,
     output data_ok_resp,
-    input [`BUS_WIDTH - 1:0]next_pc,
+    input [`BUS_WIDTH - 1:0]pc_pre,
     output [`BUS_WIDTH - 1:0]pc_if,
     input [`DATA_WIDTH - 1:0]rom_rdata,
+    input rdata_brtype,
     output [`DATA_WIDTH - 1:0]instruction_if,
+    input [`BUS_WIDTH - 1:0]pre_taken_target_pre,
+    output [`BUS_WIDTH - 1:0]pre_taken_target_if,
+    input  bp_taken_pre,
+    output bp_taken_if,
+    output early_bp_wrong_if,
     //mem_ok is resolved in next stage
     //to pre pipe
     output allow_in_if,
@@ -52,17 +59,24 @@ module pre_if(
     parameter data_full  = 2'b10;
     
     reg [`BUS_WIDTH - 1:0]pc;
+    reg bp_taken;
     reg [`DATA_WIDTH - 1:0]instruction;
+    reg [`BUS_WIDTH - 1:0]pre_taken_target;
+    
     reg [2:0] req_state;
     reg [2:0] next_req_state;
     reg [1:0] data_state;
     reg [1:0] next_data_state;
     
+    wire unbranch_type;
     wire pipe_valid;
     wire req_ok;
     wire commit_ok;
     wire mem_ack_ok;
     wire ins_ok;
+//    assign branch_type = rdata_brtype;
+    assign unbranch_type = (rom_rdata[`OP_WIDTH-1:0] != `SB_TYPE)?1'b1:1'b0;
+    assign early_bp_wrong_if = unbranch_type & bp_taken_if & (mem_data_ok);
     assign req_ok    = pipe_valid && allow_in_if;
     assign commit_ok = ready_go_if && allow_in_id;
     assign mem_ack_ok = mem_data_ok && (!hold) && req_state[2];
@@ -71,14 +85,16 @@ module pre_if(
     assign data_ok_resp = 1'b1;
 //    wire hold_pipe;
 //    assign hold_pipe = !allow_in_id | hold;
-    assign pipe_valid = valid_pre && ready_go_pre;
+    assign pipe_valid = valid_pre && ready_go_pre && !flush;
     assign pc_if = pc;
+    assign bp_taken_if = bp_taken & valid_if;
     assign instruction_if = (data_state[1])?instruction:rom_rdata;
+    assign pre_taken_target_if = pre_taken_target;
     assign ready_go_if = mem_ack_ok || ins_ok;
         
     assign valid_if = req_state[2] || data_state[1];
     assign allow_in_if = ( req_state[1] && data_state[0]) || commit_ok;
-
+    
     
 //    wire [4:0]full_control;
 //    assign full_control = {pipe_valid, cancel, pipe_valid, };
@@ -198,11 +214,15 @@ module pre_if(
     always@(posedge clk )
     begin
         if ( !rst_n )
-        begin;
+        begin
             pc <= 32'hfffffffc;
+            bp_taken <= 1'b0;
+            pre_taken_target <= 32'd0;
         end
         else if( req_ok )begin
-            pc <= next_pc;
+            pc <= pc_pre;
+            bp_taken <= bp_taken_pre;
+            pre_taken_target <= pre_taken_target_pre;
         end
     end
  

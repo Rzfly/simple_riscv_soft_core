@@ -31,6 +31,10 @@ module if_id(
     output [`BUS_WIDTH - 1:0]pc_id,
     input [`DATA_WIDTH - 1:0]instruction_if,
     output [`DATA_WIDTH - 1:0]instruction_id,
+    input [`BUS_WIDTH - 1:0]pre_taken_target_if,
+    output [`BUS_WIDTH - 1:0]pre_taken_target_id,
+    input bp_taken_if,
+    output bp_taken_id,
     //to next pipe
     input allow_in_ex,
     //processing
@@ -45,14 +49,18 @@ module if_id(
     
     reg [`BUS_WIDTH - 1:0]pc;
     reg valid;
+    reg bp_taken;
     reg [`DATA_WIDTH - 1:0]instruction;
+    reg [`BUS_WIDTH - 1:0]pre_taken_target;
     wire pipe_valid;
 //    wire hold_pipe;
 //    assign hold_pipe = ~allow_in_ex ;
     assign pipe_valid = valid_if & ready_go_if && (!cancel);
     assign pc_id = pc;
     assign valid_id = valid;    // decide pc pipe
+    assign bp_taken_id = bp_taken & valid;
     assign instruction_id = instruction;
+    assign pre_taken_target_id = pre_taken_target;
     assign ready_go_id = !hold;
     //if hold, 0 or 1 || 0;
     //or, store || pipe
@@ -79,10 +87,14 @@ module if_id(
         begin;
             pc <= 0;
             instruction <= 0;
+            bp_taken <= 0;
+            pre_taken_target <= 0;
         end
         else if(pipe_valid && allow_in_id)begin
             pc <= pc_if;
             instruction <= instruction_if;
+            bp_taken <= bp_taken_if;
+            pre_taken_target <= pre_taken_target_if;
         end
     end
     

@@ -10,6 +10,7 @@ module cache(
 	input [`RAM_MASK_WIDTH - 1 : 0]mem_wem,
 	input [`DATA_WIDTH - 1 : 0]mem_wdata,
 	output [`DATA_WIDTH - 1 : 0]mem_rdata,
+	output reg mem_rdata_br_type,
 	output cache_addr_ok,
 	output cache_data_ok,
 	input  mem_writing,
@@ -127,9 +128,6 @@ module cache(
 	wire cache_way0_writing_hazard;
 	wire cache_way1_writing_hazard;
 	wire cache_req_hit;
-	reg cache_req_hit_d;
-	reg cache_way0_req_hit_d;
-	reg cache_way1_req_hit_d;
 	wire cache_req_not_hit;
 	wire cache_miss;
 //	wire cache_miss_d;
@@ -163,6 +161,8 @@ module cache(
 	wire way1_write_req;
 	wire way0_refill_req;
 	wire way1_refill_req;
+//	reg way0_rdata_brtype;
+//	reg way1_rdata_brtype;
 	wire req_handshake_ok;
 	reg uncache_req_d;
 	reg cache_req_d;
@@ -253,6 +253,16 @@ module cache(
 	assign way0_refill_req = ret_valid && !uncache_req_d && !cache_replace_order;
 	assign way1_refill_req = ret_valid && !uncache_req_d && cache_replace_order;
 	
+//	wire w0b0_br = (cache_bank_32_word_way0_bank0_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w0b1_br = (cache_bank_32_word_way0_bank1_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w0b2_br = (cache_bank_32_word_way0_bank2_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w0b3_br = (cache_bank_32_word_way0_bank3_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w1b0_br = (cache_bank_32_word_way1_bank0_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w1b1_br = (cache_bank_32_word_way1_bank1_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w1b2_br = (cache_bank_32_word_way1_bank2_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//	wire w1b3_br = (cache_bank_32_word_way1_bank3_dout[`OP_WIDTH-1:0] == `SB_TYPE)?1'b1:1'b0;
+//    mem_rdata_br_type <= (cache_way0_req_hit & w0b0_br) |(cache_way1_req_hit & w1b0_br);
+    
     always@(*)begin
         case(block_bias_d[3:2])
             2'b00:begin
@@ -276,6 +286,7 @@ module cache(
             end
         endcase
     end
+
 
 	always@(posedge clk)begin
 		if(!rst_n)begin

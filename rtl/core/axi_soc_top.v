@@ -476,6 +476,7 @@ module axi_soc_top(
         //bus
         .rom_address(rom_address),
         .rom_rdata(rom_rdata),
+        .mem_rdata_br_type(mem_rdata_br_type),
         .ram_address(ram_address),
         .ram_rdata(ram_rdata),
         .ram_wdata(ram_wdata),
@@ -512,70 +513,6 @@ module axi_soc_top(
         //jtag
 `endif
     );
-//    membus2axi_single_axi#(
-//		.DATA_WIDTH(DATA_WIDTH),
-//		.ADDR_WIDTH(ADDR_WIDTH),
-//		.ID_WIDTH(ID_WIDTH),
-//		.STRB_WIDTH(DATA_WIDTH/8)
-//	)membus2axi_single_axi_inst(
-//		.ACLK(clk),
-//		.ARESETn(rst_n),
-		
-//		.AWADDR(m1_AWADDR),
-//		.AWLEN(m1_AWLEN),
-//		.AWSIZE(m1_AWSIZE), //length. less than the width of bus b'010
-//		.AWBURST(m1_AWBURST),//type.00 = fix address. 01 = incre address. 10 = wrap
-//		.AWID(m1_AWID),
-//		.AWVALID(m1_AWVALID),
-//		.AWREADY(m1_AWREADY),
-		
-//		.WDATA(m1_WDATA),
-//		.WSTRB(m1_WSTRB),
-//		.WLAST(m1_WLAST),
-//		.WID(m1_WID),
-//		.WVALID(m1_WVALID),
-//		.WREADY(m1_WREADY),
-		
-//		.BRESP(m1_BRESP),
-//		.BID(m1_BID),
-//		.BVALID(m1_BVALID),
-//		.BREADY(m1_BREADY),
-
-//		.ARADDR(m1_ARADDR),
-//		.ARLEN(m1_ARLEN),
-//		.ARSIZE(m1_ARSIZE),
-//		.ARBURST(m1_ARBURST),
-//		.ARID(m1_ARID),
-//		.ARVALID(m1_ARVALID),
-//		.ARREADY(m1_ARREADY),
-		
-//		.RDATA(m1_RDATA),
-//		.RRESP(m1_RRESP),
-//		.RLAST(m1_RLAST),
-//		.RID(m1_RID),
-//		.RVALID(m1_RVALID),
-//		.RREADY(m1_RREADY),
-
-//	    //interface to srambus_master
-//        .rom_address(rom_address),
-//        .rom_rdata(rom_rdata),
-//        .rom_addr_ok(rom_addr_ok),
-//        .rom_data_ok(rom_data_ok),
-//        .jump_req(jump_req),
-//        .rom_req(rom_req),
-//        .rom_data_resp(rom_data_resp),
-        
-//        .ram_address(ram_address),
-//        .ram_wdata(ram_wdata),
-//        .ram_wmask(ram_wmask),
-//        .ram_rdata(ram_rdata),
-//        .ram_addr_ok(ram_addr_ok),
-//        .ram_data_ok(ram_data_ok),
-//        .ram_data_resp(ram_data_resp),
-//        .ram_req(ram_req),
-//        .ram_re(ram_re),
-//        .ram_we(ram_we)
-//	);
 
     membus2axi_cache#(
 		.DATA_WIDTH(DATA_WIDTH),
@@ -659,6 +596,7 @@ module axi_soc_top(
 	    //interface to srambus_master
         .rom_address(rom_address),
         .rom_rdata(rom_rdata),
+        .mem_rdata_br_type(mem_rdata_br_type),
         .rom_addr_ok(rom_addr_ok),
         .rom_data_ok(rom_data_ok),
         .rom_req(rom_req),

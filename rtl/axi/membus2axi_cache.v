@@ -117,6 +117,7 @@ module membus2axi_cache #(
     input [`DATA_WIDTH - 1: 0]ram_wdata,
     input [`RAM_MASK_WIDTH - 1: 0]ram_wmask,
     output [`DATA_WIDTH - 1: 0]    ram_rdata,
+    output mem_rdata_br_type,
     input ram_data_resp,
     output ram_addr_ok,
     output ram_data_ok,
@@ -221,6 +222,7 @@ module membus2axi_cache #(
         .mem_wem(4'd0),
         .mem_wdata(32'd0),
         .mem_rdata(rom_rdata),     
+        .mem_rdata_br_type(mem_rdata_br_type),
         .mem_writing(mem_writing),
         .mem_last_write_address(mem_last_write_address),
         

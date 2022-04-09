@@ -94,7 +94,7 @@ module axi_w_channel_master_buster#(
 	assign AXI_LAST_OK = WLAST && WREADY;
 	assign AXI_RESP_OK = BREADY && BVALID;
 	
-//	assign wdata_ok = wresp_state[1] && BVALID;
+	assign w_handshake = wen & waddr_ok;
 	assign waddr_ok = write_state[0];
 
 	//write data fsm
@@ -165,19 +165,31 @@ module axi_w_channel_master_buster#(
 	end
 	
 		//write_fsm
+//    always@(posedge ACLK)begin
+//		if(!ARESETn)begin
+//			wdata_ok <= 0;
+//		end
+//		else if( write_state[0] || write_state[1] || write_state[2])begin
+//			wdata_ok <= 0;
+//		end
+//		else if( write_state[3] && AXI_RESP_OK)begin
+//			wdata_ok <= 1;
+//		end
+//		else begin
+//			wdata_ok <= wdata_ok;
+//	   end
+//	end
+	
     always@(posedge ACLK)begin
 		if(!ARESETn)begin
 			wdata_ok <= 0;
 		end
-		else if( write_state[0] || write_state[1] || write_state[2])begin
-			wdata_ok <= 0;
-		end
-		else if( write_state[3] && AXI_RESP_OK)begin
+		else if(w_handshake)begin
 			wdata_ok <= 1;
 		end
 		else begin
-			wdata_ok <= wdata_ok;
-	   end
+			wdata_ok <= 0;
+		end
 	end
 	
 	reg [ID_WIDTH - 1:0] WID_TEMP;
@@ -291,23 +303,6 @@ module axi_w_channel_master_buster#(
 			WLAST    <= wlast;
 			wdata_ptr <= wdata_ptr + 1;
 			last_write_address <= last_write_address;
-		end
-		else if( write_state[3] && AXI_RESP_OK && wen)begin
-			AWADDR	 <= awaddr;
-			AWVALID  <= 1;
-			AWID     <= awid;
-			awlen_temp <= awlen;
-			AWLEN    <= awlen;
-			AWSIZE   <= awsize;
-			AWBURST  <= 2'b01;
-			
-			WDATA    <= wdata;
-			WID_TEMP <= awid;
-			WSTRB    <= wmask;
-			WVALID   <= 0;
-			WLAST    <= 0;	
-			wdata_ptr <= 0;
-			last_write_address <= awaddr;
 		end
 		else if( write_state[3])begin
 			AWADDR	 <= 0;

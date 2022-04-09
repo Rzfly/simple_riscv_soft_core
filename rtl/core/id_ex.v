@@ -31,6 +31,10 @@ module id_ex(
     output [`ALU_OP_WIDTH - 1:0]alu_control_ex,
     input [`DATA_WIDTH - 1:0]pc_id,
     output [`DATA_WIDTH - 1:0]pc_ex,
+    input [`BUS_WIDTH - 1:0]pre_taken_target_id,
+    output [`BUS_WIDTH - 1:0]pre_taken_target_ex,
+    input bp_taken_id,
+    output bp_taken_ex,
 //    input [`BUS_WIDTH - 1:0] ram_address_ex,
 //    output [`BUS_WIDTH - 1:0] ram_address,
     input [11:0]control_flow_id,
@@ -68,6 +72,7 @@ module id_ex(
     reg [`DATA_WIDTH - 1:0]csr_read_data;
     reg [`DATA_WIDTH - 1:0]imm;
     reg [`DATA_WIDTH - 1:0]instruction;
+    reg [`DATA_WIDTH - 1:0]pre_taken_target;
     reg [`ALU_OP_WIDTH - 1:0]alu_control;
     reg [6:0]multdiv_control;
     reg jalr;
@@ -88,6 +93,7 @@ module id_ex(
     reg [`RS2_WIDTH - 1:0] rs2;
     reg [`RS1_WIDTH - 1:0] rs1;
 
+    reg bp_taken;
     reg valid;  
     assign rs1_data_ex = rs1_data;
     assign rs2_data_ex = rs2_data;
@@ -113,7 +119,9 @@ module id_ex(
     assign csr_write_data_ex = csr_write_data;
     assign csr_read_data_ex = csr_read_data;
     assign multdiv_control_ex = multdiv_control & {7{valid_ex}};
-    
+    assign bp_taken_ex = bp_taken & valid_ex;
+    assign pre_taken_target_ex = pre_taken_target;
+//    assign bp_taken_ex = bp_taken ;
     wire pipe_valid;
 //    wire hold_pipe;
     wire ram_req_type;
@@ -161,6 +169,7 @@ module id_ex(
             rs2_data <= 0;
             rs1_data <= 0;
             imm <= 0;
+            bp_taken <= 0;
             control_flow <= 0;
             rd <= 0; 
             jal <= 0; 
@@ -180,6 +189,7 @@ module id_ex(
             csr_write_data <= 0;
             csr_read_data <= 0;
             multdiv_control <= 0;
+            pre_taken_target <= 0;
         end
         else if(pipe_valid & allow_in_ex_commit)begin
             pc <= pc_id;
@@ -188,7 +198,8 @@ module id_ex(
             rs2_data <= rs2_data_id;
             rs1_data <= rs1_data_id;
             imm <= imm_id;
-            rd <= rd_id;    
+            rd <= rd_id;
+            bp_taken <= bp_taken_id;
             inst_ecall_type <= int_ins_type_id[3];
             inst_ebreak_type <= int_ins_type_id[2];
             inst_mret_type <= int_ins_type_id[1];
@@ -206,6 +217,7 @@ module id_ex(
             instruction <= instruction_id;
             csr_write_data <= csr_write_data_id;
             csr_read_data <= csr_read_data_id;
+            pre_taken_target <= pre_taken_target_id;
         end
     end
     
